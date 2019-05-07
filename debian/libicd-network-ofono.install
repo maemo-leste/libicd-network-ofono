@@ -1,0 +1,4 @@
+usr/lib/icd2/libicd_network_ofono.so
+etc/gprs/*
+etc/osso-cud-scripts/*
+etc/gconf/schemas/*

@@ -3,7 +3,7 @@ Priority: optional
 Maintainer: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
 Build-Depends: debhelper (>> 3.0.0), autotools-dev,
  libglib2.0-dev, libgconf2-dev,
- icd2-dev, icd2-osso-ic-dev, ofono-dev
+ icd2-dev, icd2-osso-ic-dev, ofono-dev, mce-dev
 Standards-Version: 3.7.2
 Section: net
 

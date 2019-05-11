@@ -117,7 +117,11 @@ add_search_result(const modem *m, ofono_private *priv)
   gchar *name;
 
   if (!iap_id)
+  {
+    OFONO_INFO("SIM %s seen for the very first time, provisioning.",
+               m->sim.imsi);
     iap_id = ofono_iap_provision_sim(m->sim.imsi, m->sim.spn, priv);
+  }
 
   name = ofono_iap_get_name(iap_id);
   g_free(iap_id);
@@ -193,9 +197,6 @@ modems_foreach(gpointer key, gpointer value, gpointer user_data)
 
     if (!iap_id)
     {
-      OFONO_INFO("SIM %s seen for the very first time, provisioning.",
-                 m->sim.imsi);
-
       if (!m->sim.spn || !*m->sim.spn)
       {
         if (m->online != TRUE)

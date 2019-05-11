@@ -114,24 +114,20 @@ static void
 add_search_result(const modem *m, ofono_private *priv)
 {
   gchar *iap_id = ofono_iap_sim_is_provisioned(m->sim.imsi, priv);
-  gchar *iap_id_unescaped;
   gchar *name;
 
   if (!iap_id)
     iap_id = ofono_iap_provision_sim(m->sim.imsi, m->sim.spn, priv);
 
-  iap_id_unescaped = gconf_unescape_key(iap_id, -1);
   name = ofono_iap_get_name(iap_id);
-
   g_free(iap_id);
 
   OFONO_DEBUG("Adding GPRS/%s/%s", name, m->sim.imsi);
 
   _search_cb(ICD_NW_SEARCH_CONTINUE, name, "GPRS",
-             ICD_NW_ATTR_IAPNAME | ICD_NW_ATTR_AUTOCONNECT, iap_id_unescaped,
+             ICD_NW_ATTR_IAPNAME | ICD_NW_ATTR_AUTOCONNECT, iap_id,
              ICD_NW_LEVEL_NONE, "GPRS", ICD_NW_SUCCESS, _search_cb_token);
 
-  g_free(iap_id_unescaped);
   g_free(name);
 }
 

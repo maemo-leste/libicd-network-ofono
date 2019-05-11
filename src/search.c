@@ -113,12 +113,12 @@ idle_check_group_list(gpointer user_data)
 static void
 add_search_result(const modem *m, ofono_private *priv)
 {
-  gchar *iap_id = ofono_iap_is_provisioned(m->sim.imsi, priv);
+  gchar *iap_id = ofono_iap_sim_is_provisioned(m->sim.imsi, priv);
   gchar *iap_id_unescaped;
   gchar *name;
 
   if (!iap_id)
-    iap_id = ofono_provision_iap(m->sim.imsi, m->sim.spn, priv);
+    iap_id = ofono_iap_provision_sim(m->sim.imsi, m->sim.spn, priv);
 
   iap_id_unescaped = gconf_unescape_key(iap_id, -1);
   name = ofono_iap_get_name(iap_id);
@@ -193,7 +193,7 @@ modems_foreach(gpointer key, gpointer value, gpointer user_data)
   }
   else
   {
-    gchar *iap_id = ofono_iap_is_provisioned(m->sim.imsi, priv);
+    gchar *iap_id = ofono_iap_sim_is_provisioned(m->sim.imsi, priv);
 
     if (!iap_id)
     {

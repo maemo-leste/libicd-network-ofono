@@ -104,7 +104,7 @@ create_iap_id()
 }
 
 gchar *
-ofono_provision_iap(const gchar *imsi, const gchar *spn, ofono_private *priv)
+ofono_iap_provision_sim(const gchar *imsi, const gchar *spn, ofono_private *priv)
 {
   GHashTable *gprs_iaps = get_gprs_iaps(priv);
   gchar *id = g_hash_table_lookup(gprs_iaps, imsi);
@@ -126,7 +126,7 @@ ofono_provision_iap(const gchar *imsi, const gchar *spn, ofono_private *priv)
 }
 
 gchar *
-ofono_iap_is_provisioned(const gchar *imsi, ofono_private *priv)
+ofono_iap_sim_is_provisioned(const gchar *imsi, ofono_private *priv)
 {
   GHashTable *gprs_iaps = get_gprs_iaps(priv);
   gchar *rv = g_hash_table_lookup(gprs_iaps, imsi);

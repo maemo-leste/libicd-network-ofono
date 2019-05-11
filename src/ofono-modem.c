@@ -6,6 +6,13 @@
 #include "log.h"
 #include "dbus-helpers.h"
 #include "modem.h"
+struct _set_property_data
+{
+  ofono_modem_set_fn cb;
+  gpointer user_data;
+};
+
+typedef struct _set_property_data set_property_data;
 
 static GHashTable *modems = NULL;
 
@@ -13,6 +20,7 @@ static void
 ofono_modem_set_property_cb(DBusPendingCall *pending, void *user_data)
 {
   DBusMessage *reply;
+  set_property_data *data = user_data;
 
   OFONO_ENTER
 
@@ -28,17 +36,22 @@ ofono_modem_set_property_cb(DBusPendingCall *pending, void *user_data)
     {
       OFONO_WARN("SetProperty returned '%s'",
                  dbus_message_get_error_name(reply));
+
+      if (data->cb)
+        data->cb(FALSE, data->user_data);
     }
 
     dbus_message_unref(reply);
   }
+
+  g_free(data);
 
   OFONO_EXIT
 }
 
 static gboolean
 ofono_modem_set_property(const char *path, const char *property, int type,
-                         void *value)
+                         void *value, ofono_modem_set_fn cb, gpointer user_data)
 {
   DBusMessage *message;
   gboolean rv = FALSE;
@@ -54,20 +67,31 @@ ofono_modem_set_property(const char *path, const char *property, int type,
 
     dbus_message_iter_init_append(message, &iter);
 
-    g_assert(dbus_helper_append_property(&iter, property, type, value) == TRUE);
-
-    if (icd_dbus_send_system_mcall(message, -1,
-                                   ofono_modem_set_property_cb, NULL))
+    if (dbus_helper_append_property(&iter, property, type, value))
     {
-      rv = TRUE;
+      set_property_data *data = g_new0(set_property_data, 1);
+
+      data->cb = cb;
+      data->user_data = user_data;
+
+      if (icd_dbus_send_system_mcall(message, -1,
+                                     ofono_modem_set_property_cb, data))
+      {
+        rv = TRUE;
+      }
+      else
+      {
+        OFONO_ERR("could not send 'SetProperty' method call");
+        g_free(data);
+      }
+
+      dbus_message_unref(message);
     }
     else
-      OFONO_ERR("could not send 'SetProperty' method call");
-
-    dbus_message_unref(message);
+      OFONO_ERR("could not create 'SetProperty' method call");
   }
   else
-    OFONO_ERR("could not create 'SetProperty' method call");
+    OFONO_ERR("could not append 'SetProperty' data");
 
   OFONO_EXIT
 
@@ -75,25 +99,28 @@ ofono_modem_set_property(const char *path, const char *property, int type,
 }
 
 gboolean
-ofono_modem_set_power(const char *path, dbus_bool_t on)
+ofono_modem_set_power(const char *path, dbus_bool_t on, ofono_modem_set_fn cb,
+                      gpointer user_data)
 {
-  return ofono_modem_set_property(path, "Powered", DBUS_TYPE_BOOLEAN, &on);
+  return ofono_modem_set_property(path, "Powered", DBUS_TYPE_BOOLEAN, &on, cb,
+                                  user_data);
 }
 
 gboolean
-ofono_modem_set_online(const char *path, dbus_bool_t on)
+ofono_modem_set_online(const char *path, dbus_bool_t on, ofono_modem_set_fn cb,
+                       gpointer user_data)
 {
-  return ofono_modem_set_property(path, "Online", DBUS_TYPE_BOOLEAN, &on);
+  return ofono_modem_set_property(path, "Online", DBUS_TYPE_BOOLEAN, &on, cb,
+                                  user_data);
 }
 
 static void
 ofono_modem_notifier_notify(const char *path, gpointer data)
 {
-  GSList *notifiers;
+  GSList *notifiers = NULL;
 
-  g_assert(modems !=NULL);
-
-  notifiers = g_hash_table_lookup(modems, path);
+  if (modems)
+    notifiers = g_hash_table_lookup(modems, path);
 
   if (notifiers)
     notifier_notify(notifiers, data);
@@ -328,7 +355,8 @@ ofono_modem_close(const char *path, notify_fn cb, gpointer user_data)
 {
   GSList *notifiers;
 
-  g_assert(modems !=NULL);
+  if (!modems)
+      return;
 
   notifiers = g_hash_table_lookup(modems, path);
 

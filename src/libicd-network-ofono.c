@@ -2,7 +2,9 @@
 #include "ofono-private.h"
 #include "ofono-manager.h"
 #include "ofono-modem.h"
+#include "ofono-gconf.h"
 #include "search.h"
+#include "link.h"
 #include "mce.h"
 
 gboolean
@@ -66,6 +68,9 @@ ofono_network_init(ofono_private *priv)
   if (rv)
     priv->operation_groups = pending_operation_group_list_create();
 
+  if (rv)
+    rv = ofono_gconf_init(priv);
+
   OFONO_EXIT
 
   return rv;
@@ -75,6 +80,8 @@ static void
 ofono_network_exit(ofono_private *priv)
 {
   OFONO_ENTER
+
+  ofono_gconf_exit(priv);
 
   if (priv)
   {
@@ -114,10 +121,10 @@ icd_nw_init(struct icd_nw_api *network_api, icd_nw_watch_pid_fn watch_fn,
   OFONO_DEBUG("new priv: %p", priv);
 
   network_api->version = ICD_NW_MODULE_VERSION;
-/*  network_api->link_up = gprs_link_up;
-  network_api->link_down = gprs_link_down;
-  network_api->link_post_up = gprs_link_post_up;
-  network_api->ip_up = gprs_ip_up;
+  network_api->link_up = ofono_link_up;
+  network_api->link_down = ofono_link_down;
+  //network_api->link_post_up = ofono_link_post_up;
+  /*network_api->ip_up = gprs_ip_up;
   network_api->ip_down = gprs_ip_down;*/
   network_api->start_search = ofono_start_search;
   network_api->stop_search = ofono_stop_search;

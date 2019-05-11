@@ -3,7 +3,8 @@
 struct _sim
 {
   gchar *imsi;
-  gboolean present;
+  gchar *spn;
+  gint present;
 };
 
 typedef struct _sim sim;
@@ -11,8 +12,8 @@ typedef struct _sim sim;
 struct _net
 {
   gchar *name;
-  gboolean registered;
-  gboolean roaming;
+  gint registered;
+  gint roaming;
 };
 
 typedef struct _net net;
@@ -22,9 +23,9 @@ struct _modem
 {
   /** Modem object path */
   gchar *path;
-  gboolean emergency_call;
+  gint emergency_call;
   gboolean powered;
-  gboolean online;
+  gint online;
   gchar *imei;
   guint64 interfaces;
   sim sim;

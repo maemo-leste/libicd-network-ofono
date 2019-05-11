@@ -5,15 +5,14 @@
 #include "ofono-manager.h"
 #include "ofono-modem.h"
 #include "mce.h"
+#include "iap.h"
 
 enum search_token
 {
   SEARCH_TOKEN_SIM_PRESENT = 1,
   SEARCH_TOKEN_SIM_IMSI,
-  SEARCH_TOKEN_ONLINE,
-  SEARCH_TOKEN_NET_IFACE,
-  SEARCH_TOKEN_NET_REG,
-  SEARCH_TOKEN_NET_NAME
+  SEARCH_TOKEN_SIM_SPN,
+  SEARCH_TOKEN_ONLINE
 };
 
 icd_nw_search_cb_fn _search_cb = NULL;
@@ -25,7 +24,7 @@ ofono_start_search_operation_check(const gchar *path, const gpointer token,
 {
   enum operation_status rv = OPERATION_STATUS_CONTINUE;
   GHashTable *modems;
-  modem *m;
+  const modem *m;
 
   OFONO_ENTER
 
@@ -43,42 +42,30 @@ ofono_start_search_operation_check(const gchar *path, const gpointer token,
       {
         if (m->sim.present)
           rv = OPERATION_STATUS_FINISHED;
+
         break;
       }
       case SEARCH_TOKEN_SIM_IMSI:
       {
         if (m->sim.imsi && *m->sim.imsi)
           rv = OPERATION_STATUS_FINISHED;
+
+        break;
+      }
+      case SEARCH_TOKEN_SIM_SPN:
+      {
+        if (m->sim.spn && *m->sim.spn)
+          rv = OPERATION_STATUS_FINISHED;
+
         break;
       }
       case SEARCH_TOKEN_ONLINE:
       {
-        if (m->online)
+        if (m->online == TRUE)
           rv = OPERATION_STATUS_FINISHED;
-        else
-          /* not the best way, but meh */
-          ofono_modem_set_online(m->path, TRUE);
+        else if (m->online == FALSE)
+          ofono_modem_set_online(m->path, TRUE, NULL, NULL);
 
-        break;
-      }
-      case SEARCH_TOKEN_NET_IFACE:
-      {
-        if (m->interfaces & OFONO_MODEM_INTERFACE_NETWORK_REGISTRATION)
-          rv = OPERATION_STATUS_FINISHED;
-        break;
-      }
-      case SEARCH_TOKEN_NET_REG:
-      {
-        if (m->net.registered)
-          rv = OPERATION_STATUS_FINISHED;
-        break;
-      }
-      case SEARCH_TOKEN_NET_NAME:
-      {
-        if (m->net.name && *m->net.name)
-        {
-          rv = OPERATION_STATUS_FINISHED;
-        }
         break;
       }
       default:
@@ -124,8 +111,33 @@ idle_check_group_list(gpointer user_data)
 }
 
 static void
+add_search_result(const modem *m, ofono_private *priv)
+{
+  gchar *iap_id = ofono_iap_is_provisioned(m->sim.imsi, priv);
+  gchar *iap_id_unescaped;
+  gchar *name;
+
+  if (!iap_id)
+    iap_id = ofono_provision_iap(m->sim.imsi, m->sim.spn, priv);
+
+  iap_id_unescaped = gconf_unescape_key(iap_id, -1);
+  name = ofono_iap_get_name(iap_id);
+
+  g_free(iap_id);
+
+  OFONO_DEBUG("Adding GPRS/%s/%s", name, m->sim.imsi);
+
+  _search_cb(ICD_NW_SEARCH_CONTINUE, name, "GPRS",
+             ICD_NW_ATTR_IAPNAME | ICD_NW_ATTR_AUTOCONNECT, iap_id_unescaped,
+             ICD_NW_LEVEL_NONE, "GPRS", ICD_NW_SUCCESS, _search_cb_token);
+
+  g_free(iap_id_unescaped);
+  g_free(name);
+}
+
+static void
 ofono_start_search_finish(const gchar *path, enum operation_status status,
-                          gpointer user_data)
+                          const gpointer token, gpointer user_data)
 {
   ofono_private *priv = user_data;
 
@@ -136,17 +148,12 @@ ofono_start_search_finish(const gchar *path, enum operation_status status,
   if (status == OPERATION_STATUS_FINISHED)
   {
     GHashTable *modems = ofono_manager_get_modems();
-    modem *m = g_hash_table_lookup(modems, path);
+    const modem *m = g_hash_table_lookup(modems, path);
 
     g_assert(modems != NULL);
 
     if (m)
-    {
-      OFONO_DEBUG("Adding GPRS/%s/%s", m->net.name, m->sim.imsi);
-      _search_cb(ICD_NW_SEARCH_CONTINUE, m->net.name, "GPRS",
-                 ICD_NW_ATTR_IAPNAME | ICD_NW_ATTR_AUTOCONNECT, m->sim.imsi,
-                 ICD_NW_LEVEL_NONE, "GPRS", ICD_NW_SUCCESS, _search_cb_token);
-    }
+      add_search_result(m, priv);
   }
 
   /*
@@ -161,7 +168,7 @@ ofono_start_search_finish(const gchar *path, enum operation_status status,
 static void
 modems_foreach(gpointer key, gpointer value, gpointer user_data)
 {
-  modem *m = value;
+  const modem *m = value;
   const gchar *path = key;
   gpointer *data = user_data;
   ofono_private *priv = data[0];
@@ -169,7 +176,7 @@ modems_foreach(gpointer key, gpointer value, gpointer user_data)
   pending_operation_group *g =
       pending_operation_group_new(path, ofono_start_search_finish, priv);
 
-  if (!m->sim.present)
+  if (m->sim.present != TRUE)
   {
     pending_operation_group_add_operation(
           g, pending_operation_new(ofono_start_search_operation_check,
@@ -177,55 +184,56 @@ modems_foreach(gpointer key, gpointer value, gpointer user_data)
           -1);
   }
 
-  if (!m->sim.imsi)
+  if (!m->sim.imsi || !*m->sim.imsi)
   {
     pending_operation_group_add_operation(
           g, pending_operation_new(ofono_start_search_operation_check,
                                    GINT_TO_POINTER(SEARCH_TOKEN_SIM_IMSI)),
           -1);
   }
-
-  if (!m->online)
+  else
   {
-    OFONO_INFO("modem %s is not online, bringing up", path);
-    ofono_modem_set_online(m->path, TRUE);
+    gchar *iap_id = ofono_iap_is_provisioned(m->sim.imsi, priv);
 
-    pending_operation_group_add_operation(
-          g, pending_operation_new(ofono_start_search_operation_check,
-                                   GINT_TO_POINTER(SEARCH_TOKEN_ONLINE)),
-          -1);
-  }
+    if (!iap_id)
+    {
+      OFONO_INFO("SIM %s seen for the very first time, provisioning.",
+                 m->sim.imsi);
 
-  if (!(m->interfaces & OFONO_MODEM_INTERFACE_NETWORK_REGISTRATION))
-  {
-    pending_operation_group_add_operation(
-          g, pending_operation_new(ofono_start_search_operation_check,
-                                   GINT_TO_POINTER(SEARCH_TOKEN_NET_IFACE)),
-          -1);
-  }
+      if (!m->sim.spn || !*m->sim.spn)
+      {
+        if (m->online != TRUE)
+        {
+          /* looks like ofono needs modem online and registered to get
+             ServiceProviderName (HPLMN) */
+          OFONO_INFO("modem %s is not online, bringing up", path);
+          pending_operation_group_add_operation(
+                g, pending_operation_new(ofono_start_search_operation_check,
+                                         GINT_TO_POINTER(SEARCH_TOKEN_ONLINE)),
+                -1);
+          /*
+           * this is weird, I know, but the idea is that we might not have
+           * 'Online' property valid yet. If that is the case, we'll request
+           * to set it in the property check callback
+           */
+          if (m->online == FALSE)
+            ofono_modem_set_online(m->path, TRUE, NULL, NULL);
+        }
 
-  if (!m->net.registered)
-  {
-    pending_operation_group_add_operation(
-          g, pending_operation_new(ofono_start_search_operation_check,
-                                   GINT_TO_POINTER(SEARCH_TOKEN_NET_REG)),
-          -1);
-  }
+        pending_operation_group_add_operation(
+              g, pending_operation_new(ofono_start_search_operation_check,
+                                       GINT_TO_POINTER(SEARCH_TOKEN_SIM_SPN)),
+              -1);
+      }
+    }
 
-  if (!m->net.name)
-  {
-    pending_operation_group_add_operation(
-          g, pending_operation_new(ofono_start_search_operation_check,
-                                   GINT_TO_POINTER(SEARCH_TOKEN_NET_NAME)),
-          -1);
+    g_free(iap_id);
   }
 
   if (pending_operation_group_is_empty(g))
   {
     pending_operation_group_free(g);
-    _search_cb(ICD_NW_SEARCH_CONTINUE, m->net.name, "GPRS",
-               ICD_NW_ATTR_IAPNAME | ICD_NW_ATTR_AUTOCONNECT, m->sim.imsi,
-               ICD_NW_LEVEL_NONE, "GPRS", ICD_NW_SUCCESS, _search_cb_token);
+    add_search_result(m, priv);
   }
   else
   {

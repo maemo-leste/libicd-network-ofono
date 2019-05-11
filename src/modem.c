@@ -20,6 +20,12 @@ modem_new(const char *path, gboolean powered)
   m->path = g_strdup(path);
   m->powered = powered;
 
+  m->emergency_call = -1;
+  m->online = -1;
+  m->sim.present = -1;
+  m->net.registered = -1;
+  m->net.roaming = -1;
+
   return m;
 }
 
@@ -43,6 +49,7 @@ modem_dup(const modem *m)
 
   rv->sim.present = m->sim.present;
   rv->sim.imsi = g_strdup(m->sim.imsi);
+  rv->sim.spn = g_strdup(m->sim.spn);
 
   rv->net.registered = m->net.registered;
   rv->net.roaming = m->net.roaming;
@@ -81,9 +88,10 @@ modem_list_add(GHashTable *modems, const modem *modem)
 modem *
 modem_list_find(GHashTable *modems, const gchar *path)
 {
-  g_assert(modems !=NULL);
-
-  return g_hash_table_lookup(modems, (gconstpointer)path);
+  if (modems)
+    return g_hash_table_lookup(modems, (gconstpointer)path);
+  else
+    return NULL;
 }
 
 /**
@@ -110,6 +118,7 @@ modem_free(modem *modem)
   g_free(modem->path);
   g_free(modem->imei);
   g_free(modem->sim.imsi);
+  g_free(modem->sim.spn);
   g_free(modem->net.name);
   g_free(modem);
 }

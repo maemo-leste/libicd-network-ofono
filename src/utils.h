@@ -13,7 +13,7 @@ enum operation_status
 };
 
 typedef enum operation_status (*pending_operation_check_fn)(const gchar *path, const gpointer token, gpointer user_data);
-typedef void (*pending_operation_group_finish_fn)(const gchar *path, enum operation_status status, gpointer user_data);
+typedef void (*pending_operation_group_finish_fn)(const gchar *path, enum operation_status status, const gpointer token, gpointer user_data);
 
 typedef struct _pending_operation pending_operation;
 typedef struct _pending_operation_group pending_operation_group;

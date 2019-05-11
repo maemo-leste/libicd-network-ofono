@@ -22,11 +22,15 @@ libicd_network_ofono_la_SOURCES = \
 	utils.c \
 	modem.c \
 	mce.c \
+	iap.c \
+	ofono-gconf.c \
 	ofono-net.c \
 	ofono-sim.c \
 	ofono-modem.c \
 	ofono-manager.c \
+	ofono-network.c \
 	search.c \
+	link.c \
 	libicd-network-ofono.c
 
 libicd_network_ofono_la_LIBADD = \

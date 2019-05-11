@@ -88,10 +88,13 @@ pending_operation_group_execute(pending_operation_group *group)
   GSList *to_remove = NULL;
   gboolean has_error = FALSE;
   enum operation_status status = OPERATION_STATUS_UNKNOWN;
+  gpointer token = NULL;
 
   for (l = group->operations; l; l = l->next)
   {
     pending_operation *p = l->data;
+
+    token = p->token;
     status = p->check(group->path, p->token, p->user_data);
 
     switch (status)
@@ -115,7 +118,7 @@ pending_operation_group_execute(pending_operation_group *group)
     g_slist_free_full(group->operations,
                       (GDestroyNotify)pending_operation_free);
     group->operations = NULL;
-    group->group_finish(group->path, status, group->user_data);
+    group->group_finish(group->path, status, token, group->user_data);
   }
   else
   {
@@ -127,7 +130,7 @@ pending_operation_group_execute(pending_operation_group *group)
 
     if (!group->operations)
     {
-      group->group_finish(group->path, OPERATION_STATUS_FINISHED,
+      group->group_finish(group->path, OPERATION_STATUS_FINISHED, NULL,
                           group->user_data);
     }
   }
@@ -138,7 +141,7 @@ pending_operation_group_execute(pending_operation_group *group)
 static void
 pending_operation_group_abort(pending_operation_group *group)
 {
-  group->group_finish(group->path, OPERATION_STATUS_ABORT, group->user_data);
+  group->group_finish(group->path, OPERATION_STATUS_ABORT, 0, group->user_data);
   g_slist_free_full(group->operations,
                     (GDestroyNotify)pending_operation_free);
   group->operations = NULL;

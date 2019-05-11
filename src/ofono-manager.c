@@ -32,6 +32,11 @@ ofono_sim_property_change_cb(gpointer data, gpointer user_data)
     g_free(m->sim.imsi);
     m->sim.imsi = g_strdup(pc->val.str);
   }
+  else if (!strcmp(property, "ServiceProviderName"))
+  {
+    g_free(m->sim.spn);
+    m->sim.spn = g_strdup(pc->val.str);
+  }
   else
     notify = FALSE;
 
@@ -183,7 +188,7 @@ _ofono_manager_add_modem(const gchar *path, gboolean powered)
   if (!powered)
   {
     OFONO_INFO("Powering on %s", path);
-    ofono_modem_set_power(path, TRUE);
+    ofono_modem_set_power(path, TRUE, NULL, NULL);
   }
 }
 

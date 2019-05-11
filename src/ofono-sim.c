@@ -12,11 +12,10 @@ static GHashTable *sims = NULL;
 static void
 ofono_sim_notifier_notify(const char *path, gpointer data)
 {
-  GSList *notifiers;
+  GSList *notifiers = NULL;
 
-  g_assert(sims !=NULL);
-
-  notifiers = g_hash_table_lookup(sims, path);
+  if (sims)
+    notifiers = g_hash_table_lookup(sims, path);
 
   if (notifiers)
     notifier_notify(notifiers, data);
@@ -274,7 +273,8 @@ ofono_sim_close(const char *path, notify_fn cb, gpointer user_data)
 {
   GSList *notifiers;
 
-  g_assert(sims !=NULL);
+  if (!sims)
+      return;
 
   notifiers = g_hash_table_lookup(sims, path);
 

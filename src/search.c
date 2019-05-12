@@ -1,9 +1,9 @@
-#include "ofono-private.h"
-#include "log.h"
+#include <libofono/log.h>
+#include <libofono/ofono-manager.h>
+//#include <libofono/ofono-modem.h">
 
+#include "ofono-private.h"
 #include "search.h"
-#include "ofono-manager.h"
-#include "ofono-modem.h"
 #include "mce.h"
 #include "iap.h"
 
@@ -64,7 +64,7 @@ ofono_start_search_operation_check(const gchar *path, const gpointer token,
         if (m->online == TRUE)
           rv = OPERATION_STATUS_FINISHED;
         else if (m->online == FALSE)
-          ofono_modem_set_online(m->path, TRUE, NULL, NULL);
+          ofono_manager_modem_set_online(m->path, TRUE, NULL, NULL);
 
         break;
       }
@@ -214,7 +214,7 @@ modems_foreach(gpointer key, gpointer value, gpointer user_data)
            * to set it in the property check callback
            */
           if (m->online == FALSE)
-            ofono_modem_set_online(m->path, TRUE, NULL, NULL);
+            ofono_manager_modem_set_online(m->path, TRUE, NULL, NULL);
         }
 
         pending_operation_group_add_operation(

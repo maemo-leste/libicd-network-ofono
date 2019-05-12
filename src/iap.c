@@ -1,11 +1,11 @@
 #include <icd/icd_iap.h>
 #include <icd/osso-ic-gconf.h>
 #include <icd/icd_gconf.h>
+#include <libofono/log.h>
 
 #include <string.h>
 
 #include "ofono-private.h"
-#include "log.h"
 
 #include "iap.h"
 
@@ -52,7 +52,7 @@ get_gprs_iaps(ofono_private *priv)
   for (l = dirs; l; l = l->next)
   {
     const gchar *dir = dirs->data;
-    gchar *key = g_strconcat(dir, "/type", NULL);
+    gchar *key = g_strconcat(dir, "/" TYPE, NULL);
     gchar *type = gconf_client_get_string(priv->gconf, key, NULL);
 
     g_free(key);
@@ -85,6 +85,8 @@ get_gprs_iaps(ofono_private *priv)
       }
     }
   }
+
+  g_slist_free_full(dirs, g_free);
 
   return gprs_iaps;
 }

@@ -1,7 +1,7 @@
+#include <libofono/log.h>
+#include <libofono/modem.h>
+
 #include "ofono-private.h"
-#include "log.h"
-#include "ofono-modem.h"
-#include "modem.h"
 
 #include "utils.h"
 

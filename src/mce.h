@@ -1,4 +1,4 @@
-#include "notifier.h"
+#include <libofono/notifier.h>
 
 enum ofono_mce_device_mode
 {
@@ -8,5 +8,5 @@ enum ofono_mce_device_mode
 };
 
 enum ofono_mce_device_mode ofono_mce_get_device_mode(void);
-gboolean ofono_mce_device_mode_register(notify_fn cb, gpointer user_data);
-void ofono_mce_device_mode_close(notify_fn cb, gpointer user_data);
+gboolean ofono_mce_device_mode_register(ofono_notify_fn cb, gpointer user_data);
+void ofono_mce_device_mode_close(ofono_notify_fn cb, gpointer user_data);

@@ -1,7 +1,7 @@
-#include "log.h"
+#include <libofono/log.h>
+#include <libofono/ofono-manager.h>
+
 #include "ofono-private.h"
-#include "ofono-manager.h"
-#include "ofono-modem.h"
 #include "ofono-gconf.h"
 #include "search.h"
 #include "link.h"

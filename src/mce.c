@@ -1,10 +1,10 @@
 #include <icd/support/icd_dbus.h>
 #include <mce/dbus-names.h>
 #include <mce/mode-names.h>
+#include <libofono/log.h>
 
 #include <string.h>
 
-#include "log.h"
 
 #include "mce.h"
 
@@ -22,7 +22,7 @@ ofono_mce_device_mode_change(const char *mode)
   else
     device_mode = OFONO_MCE_DEVICE_MODE_INVALID;
 
-  notifier_notify(notifiers, &device_mode);
+  ofono_notifier_notify(notifiers, &device_mode);
 }
 
 static void
@@ -141,7 +141,7 @@ ofono_mce_device_mode_remove_dbus_filter()
 }
 
 gboolean
-ofono_mce_device_mode_register(notify_fn cb, gpointer user_data)
+ofono_mce_device_mode_register(ofono_notify_fn cb, gpointer user_data)
 {
   gboolean rv = TRUE;
 
@@ -153,15 +153,15 @@ ofono_mce_device_mode_register(notify_fn cb, gpointer user_data)
   }
 
   if (rv)
-    notifier_register(&notifiers, cb, user_data);
+    ofono_notifier_register(&notifiers, cb, user_data);
 
   return rv;
 }
 
 void
-ofono_mce_device_mode_close(notify_fn cb, gpointer user_data)
+ofono_mce_device_mode_close(ofono_notify_fn cb, gpointer user_data)
 {
-  notifier_close(&notifiers, cb, user_data);
+  ofono_notifier_close(&notifiers, cb, user_data);
 
   if (!notifiers)
   {

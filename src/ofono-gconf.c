@@ -1,7 +1,7 @@
 #include <icd/icd_gconf.h>
+#include <libofono/log.h>
 
 #include "ofono-private.h"
-#include "log.h"
 
 #include "ofono-gconf.h"
 

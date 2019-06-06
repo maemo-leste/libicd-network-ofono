@@ -1,12 +1,13 @@
 #include <icd/icd_iap.h>
 #include <icd/osso-ic-gconf.h>
 #include <icd/icd_gconf.h>
-#include <libofono/log.h>
 
 #include <string.h>
 
 #include "ofono-private.h"
+#include "ofono-modem.h"
 
+#include "log.h"
 #include "iap.h"
 
 #define SIM_IMSI "sim_imsi"
@@ -41,6 +42,7 @@ ofono_icd_gconf_set_iap_string (ofono_private *priv, const char *iap_name,
 }
 
 /* sim_imsi->iap_id */
+
 static GHashTable *
 get_gprs_iaps(ofono_private *priv)
 {
@@ -51,7 +53,7 @@ get_gprs_iaps(ofono_private *priv)
 
   for (l = dirs; l; l = l->next)
   {
-    const gchar *dir = dirs->data;
+    const gchar *dir = l->data;
     gchar *key = g_strconcat(dir, "/" TYPE, NULL);
     gchar *type = gconf_client_get_string(priv->gconf, key, NULL);
 
@@ -106,21 +108,27 @@ create_iap_id()
 }
 
 gchar *
-ofono_iap_provision_sim(const gchar *imsi, const gchar *spn, ofono_private *priv)
+ofono_iap_get_name(const gchar *id)
+{
+  return icd_gconf_get_iap_string(id, NAME);
+}
+
+gchar *
+ofono_iap_provision_sim(struct modem_data *md, ofono_private *priv)
 {
   GHashTable *gprs_iaps = get_gprs_iaps(priv);
-  gchar *id = g_hash_table_lookup(gprs_iaps, imsi);
+  gchar *id = g_hash_table_lookup(gprs_iaps, md->sim->imsi);
 
   if (id)
     id = g_strdup(id);
   else
   {
     id = create_iap_id();
-    ofono_icd_gconf_set_iap_string(priv, id, SIM_IMSI, imsi);
+    ofono_icd_gconf_set_iap_string(priv, id, SIM_IMSI, md->sim->imsi);
     ofono_icd_gconf_set_iap_string(priv, id, TYPE, "GPRS");
   }
 
-  ofono_icd_gconf_set_iap_string(priv, id, NAME, spn);
+  ofono_icd_gconf_set_iap_string(priv, id, NAME, md->sim->spn);
 
   g_hash_table_destroy(gprs_iaps);
 
@@ -139,10 +147,4 @@ ofono_iap_sim_is_provisioned(const gchar *imsi, ofono_private *priv)
   g_hash_table_destroy(gprs_iaps);
 
   return rv;
-}
-
-gchar *
-ofono_iap_get_name(const gchar *id)
-{
-  return icd_gconf_get_iap_string(id, NAME);
 }

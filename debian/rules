@@ -22,7 +22,7 @@ autoreconf:
 	./autogen.sh
 
 override_dh_autoreconf:
-	dh_autoreconf debian/rules -- autoreconf
+	dh_autoreconf --as-needed debian/rules -- autoreconf
 
 %:
 	dh $@ --with autoreconf

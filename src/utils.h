@@ -12,14 +12,14 @@ enum operation_status
   OPERATION_STATUS_ABORT
 };
 
-typedef enum operation_status (*pending_operation_check_fn)(const gchar *path, const gpointer token, gpointer user_data);
+typedef enum operation_status (*pending_operation_check_fn)(const gchar *path, const gpointer token, gpointer group_user_data, gpointer user_data);
 typedef void (*pending_operation_group_finish_fn)(const gchar *path, enum operation_status status, const gpointer token, gpointer user_data);
 
 typedef struct _pending_operation pending_operation;
 typedef struct _pending_operation_group pending_operation_group;
 typedef struct _pending_operation_group_list pending_operation_group_list;
 
-pending_operation *pending_operation_new(pending_operation_check_fn check, const gpointer token);
+pending_operation *pending_operation_new(pending_operation_check_fn check, const gpointer token, gpointer user_data);
 
 pending_operation_group *pending_operation_group_new(const gchar *path, pending_operation_group_finish_fn group_finish, gpointer user_data);
 void pending_operation_group_free(pending_operation_group *g);

@@ -7,10 +7,10 @@ AM_CPPFLAGS = \
 	$(ICD2_CFLAGS) \
 	$(OSSO_IC_DEV_CFLAGS) \
 	$(DBUS_CFLAGS) \
-	$(MCE_CFLAGS) \
-	$(LIBOFONO_CFLAGS)
+	$(LIBGOFONO_CFLAGS) \
+	$(CONNUI_CFLAGS)
 
-AM_LDFLAGS = -avoid-version --Wl,--as-needed
+AM_LDFLAGS = -avoid-version -Wl,--as-needed
 
 plugindir = $(ICD_PLUGIN_DIR)
 
@@ -18,10 +18,9 @@ plugin_LTLIBRARIES = \
 	libicd_network_ofono.la
 
 libicd_network_ofono_la_SOURCES = \
-	mce.c \
 	iap.c \
 	ofono-gconf.c \
-	ofono-network.c \
+	ofono-modem.c \
 	search.c \
 	link.c \
 	utils.c \
@@ -33,5 +32,5 @@ libicd_network_ofono_la_LIBADD = \
 	$(ICD2_LIBS) \
 	$(OSSO_IC_DEV_LIBS) \
 	$(DBUS_LIBS) \
-	$(MCE_LIBS) \
-	$(LIBOFONO_LIBS)
+	$(LIBGOFONO_LIBS) \
+	$(CONNUI_LIBS)

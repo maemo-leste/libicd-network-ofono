@@ -1,3 +1,4 @@
+#include <gofono_manager.h>
 #include "icd/network_api.h"
 #include <gconf/gconf-client.h>
 
@@ -13,4 +14,14 @@ struct _ofono_private
   pending_operation_group_list *operation_groups;
   GHashTable *iaps;
   GConfClient *gconf;
+  gboolean online;
+
+  OfonoManager* manager;
+  gulong modem_removed_id;
+  gulong modem_added_id;
+  gulong manager_valid_id;
+  GHashTable *modems;
 };
+
+#define SEARCH_INTERVAL 20
+#define SEARCH_LIFETIME 30

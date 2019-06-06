@@ -1,7 +1,5 @@
-#include <libofono/log.h>
-
 #include "ofono-private.h"
-
+#include "log.h"
 #include "link.h"
 
 void

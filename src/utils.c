@@ -1,8 +1,5 @@
-#include <libofono/log.h>
-#include <libofono/modem.h>
-
 #include "ofono-private.h"
-
+#include "log.h"
 #include "utils.h"
 
 struct _pending_operation
@@ -28,13 +25,15 @@ struct _pending_operation_group_list
 
 /* pending operation */
 pending_operation *
-pending_operation_new(pending_operation_check_fn check, const gpointer token)
+pending_operation_new(pending_operation_check_fn check, const gpointer token,
+                      gpointer user_data)
 {
   pending_operation *p = g_new0(pending_operation, 1);
 
   OFONO_INFO("Token %p", token);
   p->check = check;
   p->token = token;
+  p->user_data = user_data;
 
   return p;
 }
@@ -95,7 +94,7 @@ pending_operation_group_execute(pending_operation_group *group)
     pending_operation *p = l->data;
 
     token = p->token;
-    status = p->check(group->path, p->token, p->user_data);
+    status = p->check(group->path, p->token, group->user_data, p->user_data);
 
     switch (status)
     {

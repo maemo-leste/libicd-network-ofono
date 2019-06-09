@@ -41,6 +41,22 @@ ofono_icd_gconf_set_iap_string (ofono_private *priv, const char *iap_name,
   return rv;
 }
 
+static gboolean
+ofono_icd_gconf_set_iap_bool (ofono_private *priv, const char *iap_name,
+                                const char *key, gboolean val)
+{
+  GError *err = NULL;
+  char *id = gconf_escape_key(iap_name, -1);
+  gchar *dir = g_strdup_printf(ICD_GCONF_PATH "/%s/%s", id, key);
+  gboolean rv = gconf_client_set_bool(priv->gconf, dir, val, &err);
+
+  g_free(id);
+  g_free(dir);
+  ofono_icd_gconf_check_error(&err);
+
+  return rv;
+}
+
 /* sim_imsi->iap_id */
 
 static GHashTable *
@@ -113,6 +129,70 @@ ofono_iap_get_name(const gchar *id)
   return icd_gconf_get_iap_string(id, NAME);
 }
 
+static void
+ofono_iap_provision_connection(const gchar *id, struct modem_data *md,
+                               ofono_private *priv)
+{
+  OfonoConnMgr *mgr = md->connmgr;
+
+  if (ofono_connmgr_valid(mgr))
+  {
+    GPtrArray *ctxs = ofono_connmgr_get_contexts(mgr);
+    guint i;
+
+    for (i = 0; i < ctxs->len; i++)
+    {
+      OfonoConnCtx *ctx = ctxs->pdata[i];
+
+      if (ofono_connctx_valid(ctx) &&
+          ctx->type == OFONO_CONNCTX_TYPE_INTERNET)
+      {
+        if (ctx->apn)
+        {
+          ofono_icd_gconf_set_iap_string(priv, id, "gprs_accesspointname",
+                                         ctx->apn);
+        }
+
+        if (ctx->username)
+        {
+          ofono_icd_gconf_set_iap_string(priv, id, "gprs_username",
+                                         ctx->username);
+        }
+
+        if (ctx->password)
+        {
+          ofono_icd_gconf_set_iap_string(priv, id, "gprs_password",
+                                         ctx->password);
+        }
+
+        ofono_icd_gconf_set_iap_string(priv, id, "ipv4_type", "AUTO");
+        ofono_icd_gconf_set_iap_bool(priv, id, "ipv4_autodns", TRUE);
+        ofono_icd_gconf_set_iap_bool(priv, id, "ask_password", FALSE);
+
+        if (ctx->settings)
+        {
+          if (ctx->settings->address)
+          {
+            ofono_icd_gconf_set_iap_string(priv, id, "ipv4_address",
+                                           ctx->settings->address);
+          }
+
+          if (ctx->settings->dns[0])
+          {
+            ofono_icd_gconf_set_iap_string(priv, id, "ipv4_dns1",
+                                           ctx->settings->dns[0]);
+            if (ctx->settings->dns[1])
+            {
+              ofono_icd_gconf_set_iap_string(priv, id, "ipv4_dns2",
+                                             ctx->settings->dns[1]);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 gchar *
 ofono_iap_provision_sim(struct modem_data *md, ofono_private *priv)
 {
@@ -126,6 +206,7 @@ ofono_iap_provision_sim(struct modem_data *md, ofono_private *priv)
     id = create_iap_id();
     ofono_icd_gconf_set_iap_string(priv, id, SIM_IMSI, md->sim->imsi);
     ofono_icd_gconf_set_iap_string(priv, id, TYPE, "GPRS");
+    ofono_iap_provision_connection(id, md, priv);
   }
 
   ofono_icd_gconf_set_iap_string(priv, id, NAME, md->sim->spn);

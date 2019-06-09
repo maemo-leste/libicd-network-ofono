@@ -11,7 +11,7 @@ static gpointer _search_cb_token = NULL;
 static guint operations_group_timeout_id = 0;
 
 static void
-simmgr_remove_handler(struct modem_data *md)
+remove_handlers(struct modem_data *md)
 {
   if (md->simmgr_handler_id[SIMMGR_HANDLER_PROPERTY])
   {
@@ -19,6 +19,51 @@ simmgr_remove_handler(struct modem_data *md)
           md->sim, md->simmgr_handler_id[SIMMGR_HANDLER_PROPERTY]);
     md->simmgr_handler_id[SIMMGR_HANDLER_PROPERTY] = 0;
   }
+
+  if (md->connmgr_handler_id[CONNMGR_HANDLER_CONTEXT_ADDED])
+  {
+    ofono_connmgr_remove_handler(
+          md->connmgr, md->connmgr_handler_id[CONNMGR_HANDLER_CONTEXT_ADDED]);
+    md->connmgr_handler_id[CONNMGR_HANDLER_CONTEXT_ADDED] = 0;
+  }
+}
+
+static gboolean
+operations_check(gpointer user_data)
+{
+  ofono_private *priv = user_data;
+
+  pending_operation_group_list_execute(priv->operation_groups);
+
+  return FALSE;
+}
+
+static void
+simmgr_property_changed(OfonoSimMgr* sender, const char* name, GVariant* value,
+                        void* arg)
+{
+  operations_check(arg);
+}
+
+static void
+connmgr_context_added(OfonoConnMgr* sender, OfonoConnCtx* context, void* arg)
+{
+  operations_check(arg);
+}
+
+static void
+add_handlers(struct modem_data *md, ofono_private *priv)
+{
+  g_assert(md->simmgr_handler_id[SIMMGR_HANDLER_PROPERTY] == 0);
+  g_assert(md->connmgr_handler_id[CONNMGR_HANDLER_CONTEXT_ADDED] == 0);
+
+  md->simmgr_handler_id[SIMMGR_HANDLER_PROPERTY] =
+      ofono_simmgr_add_property_changed_handler(md->sim,
+                                                simmgr_property_changed, NULL,
+                                                priv);
+  md->connmgr_handler_id[CONNMGR_HANDLER_CONTEXT_ADDED] =
+      ofono_connmgr_add_context_added_handler(md->connmgr,
+                                              connmgr_context_added, priv);
 }
 
 static enum operation_status
@@ -64,13 +109,35 @@ search_operation_check(const gchar *path, const gpointer token,
             ofono_modem_set_online(md->modem, TRUE);
         }
         else
-          rv = OPERATION_STATUS_FINISHED;
+        {
+          OfonoConnMgr *mgr = md->connmgr;
+
+          if (ofono_connmgr_valid(mgr))
+          {
+            GPtrArray *ctxs = ofono_connmgr_get_contexts(mgr);
+            guint i;
+
+            for (i = 0; i < ctxs->len; i++)
+            {
+              OfonoConnCtx *ctx = ctxs->pdata[i];
+
+              if (ofono_connctx_valid(ctx) &&
+                  ctx->type == OFONO_CONNCTX_TYPE_INTERNET &&
+                  ctx->apn && ctx->username && ctx->password)
+              {
+                rv = OPERATION_STATUS_FINISHED;
+                break;
+              }
+            }
+
+          }
+        }
       }
     }
   }
 
   if (rv == OPERATION_STATUS_FINISHED)
-    simmgr_remove_handler(md);
+    remove_handlers(md);
 
   OFONO_INFO("Status %d", rv);
   OFONO_EXIT
@@ -142,14 +209,14 @@ add_search_result(struct modem_data *md, ofono_private *priv)
   }
 
   name = ofono_iap_get_name(iap_id);
-  g_free(iap_id);
 
-  OFONO_DEBUG("Adding GPRS/%s/%s", name, md->sim->imsi);
+  OFONO_DEBUG("Adding GPRS/%s/%s/%s", iap_id, name, md->sim->imsi);
 
   _search_cb(ICD_NW_SEARCH_CONTINUE, name, "GPRS",
              ICD_NW_ATTR_IAPNAME | ICD_NW_ATTR_AUTOCONNECT, iap_id,
              ICD_NW_LEVEL_NONE, "GPRS", ICD_NW_SUCCESS, _search_cb_token);
 
+  g_free(iap_id);
   g_free(name);
 
   OFONO_EXIT
@@ -174,7 +241,7 @@ ofono_start_search_finish(const gchar *path, enum operation_status status,
     if (status == OPERATION_STATUS_FINISHED)
       add_search_result(md, priv);
 
-    simmgr_remove_handler(md);
+    remove_handlers(md);
   }
   /*
     we need to do idle check as current cb is called before group is removed
@@ -183,23 +250,6 @@ ofono_start_search_finish(const gchar *path, enum operation_status status,
   g_idle_add(idle_check_group_list, priv);
 
   OFONO_EXIT
-}
-
-static gboolean
-operations_check(gpointer user_data)
-{
-  ofono_private *priv = user_data;
-
-  pending_operation_group_list_execute(priv->operation_groups);
-
-  return FALSE;
-}
-
-static void
-simmgr_property_changed(OfonoSimMgr* sender, const char* name, GVariant* value,
-                        void* arg)
-{
-  operations_check(arg);
 }
 
 static void
@@ -216,12 +266,7 @@ modems_foreach(gpointer key, gpointer value, gpointer user_data)
   pending_operation_group_add_operation(
         g, pending_operation_new(search_operation_check, NULL, NULL), -1);
 
-  g_assert(md->simmgr_handler_id[SIMMGR_HANDLER_PROPERTY] == 0);
-
-  md->simmgr_handler_id[SIMMGR_HANDLER_PROPERTY] =
-      ofono_simmgr_add_property_changed_handler(md->sim,
-                                                simmgr_property_changed, NULL,
-                                                priv);
+  add_handlers(md, priv);
 
   pending_operation_group_list_add(priv->operation_groups, g);
 }

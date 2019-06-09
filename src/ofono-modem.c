@@ -5,6 +5,7 @@
 static void
 destroy_modem_data(struct modem_data *md)
 {
+  ofono_connmgr_unref(md->connmgr);
   ofono_simmgr_unref(md->sim);
   ofono_modem_unref(md->modem);
   g_free(md);
@@ -54,6 +55,7 @@ create_modem(OfonoModem *modem, ofono_private *priv)
 
   md->modem = ofono_modem_ref(modem);
   md->sim = ofono_simmgr_new(path);
+  md->connmgr = ofono_connmgr_new(path);
 
   g_hash_table_insert(priv->modems, g_strdup(path), md);
 

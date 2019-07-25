@@ -25,3 +25,5 @@ struct _ofono_private
 
 #define SEARCH_INTERVAL 20
 #define SEARCH_LIFETIME 30
+
+#define SIM_IMSI "sim_imsi"

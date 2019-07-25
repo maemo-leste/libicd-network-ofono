@@ -10,7 +10,6 @@
 #include "log.h"
 #include "iap.h"
 
-#define SIM_IMSI "sim_imsi"
 #define NAME "name"
 #define TYPE "type"
 
@@ -133,62 +132,41 @@ static void
 ofono_iap_provision_connection(const gchar *id, struct modem_data *md,
                                ofono_private *priv)
 {
-  OfonoConnMgr *mgr = md->connmgr;
+  OfonoConnCtx *ctx = ofono_modem_get_last_internet_context(md);
 
-  if (ofono_connmgr_valid(mgr))
+  if (!ctx)
+    return;
+
+  if (ctx->apn)
+    ofono_icd_gconf_set_iap_string(priv, id, "gprs_accesspointname", ctx->apn);
+
+  if (ctx->username)
+    ofono_icd_gconf_set_iap_string(priv, id, "gprs_username", ctx->username);
+
+  if (ctx->password)
+    ofono_icd_gconf_set_iap_string(priv, id, "gprs_password", ctx->password);
+
+  ofono_icd_gconf_set_iap_string(priv, id, "ipv4_type", "AUTO");
+  ofono_icd_gconf_set_iap_bool(priv, id, "ipv4_autodns", TRUE);
+  ofono_icd_gconf_set_iap_bool(priv, id, "ask_password", FALSE);
+
+  if (!ctx->settings)
+    return;
+
+  if (ctx->settings->address)
   {
-    GPtrArray *ctxs = ofono_connmgr_get_contexts(mgr);
-    guint i;
+    ofono_icd_gconf_set_iap_string(priv, id, "ipv4_address",
+                                   ctx->settings->address);
+  }
 
-    for (i = 0; i < ctxs->len; i++)
+  if (ctx->settings->dns[0])
+  {
+    ofono_icd_gconf_set_iap_string(priv, id, "ipv4_dns1",
+                                   ctx->settings->dns[0]);
+    if (ctx->settings->dns[1])
     {
-      OfonoConnCtx *ctx = ctxs->pdata[i];
-
-      if (ofono_connctx_valid(ctx) &&
-          ctx->type == OFONO_CONNCTX_TYPE_INTERNET)
-      {
-        if (ctx->apn)
-        {
-          ofono_icd_gconf_set_iap_string(priv, id, "gprs_accesspointname",
-                                         ctx->apn);
-        }
-
-        if (ctx->username)
-        {
-          ofono_icd_gconf_set_iap_string(priv, id, "gprs_username",
-                                         ctx->username);
-        }
-
-        if (ctx->password)
-        {
-          ofono_icd_gconf_set_iap_string(priv, id, "gprs_password",
-                                         ctx->password);
-        }
-
-        ofono_icd_gconf_set_iap_string(priv, id, "ipv4_type", "AUTO");
-        ofono_icd_gconf_set_iap_bool(priv, id, "ipv4_autodns", TRUE);
-        ofono_icd_gconf_set_iap_bool(priv, id, "ask_password", FALSE);
-
-        if (ctx->settings)
-        {
-          if (ctx->settings->address)
-          {
-            ofono_icd_gconf_set_iap_string(priv, id, "ipv4_address",
-                                           ctx->settings->address);
-          }
-
-          if (ctx->settings->dns[0])
-          {
-            ofono_icd_gconf_set_iap_string(priv, id, "ipv4_dns1",
-                                           ctx->settings->dns[0]);
-            if (ctx->settings->dns[1])
-            {
-              ofono_icd_gconf_set_iap_string(priv, id, "ipv4_dns2",
-                                             ctx->settings->dns[1]);
-            }
-          }
-        }
-      }
+      ofono_icd_gconf_set_iap_string(priv, id, "ipv4_dns2",
+                                     ctx->settings->dns[1]);
     }
   }
 }

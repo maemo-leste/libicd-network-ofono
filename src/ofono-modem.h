@@ -35,3 +35,6 @@ struct modem_data
   OfonoConnMgr *connmgr;
   gulong connmgr_handler_id[CONNMGR_HANDLER_COUNT];
 };
+
+OfonoConnCtx *ofono_modem_get_last_internet_context(struct modem_data *md);
+OfonoConnCtx *ofono_modem_get_context_by_apn(struct modem_data *md, const char *apn);

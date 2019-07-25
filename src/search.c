@@ -29,7 +29,7 @@ remove_handlers(struct modem_data *md)
 }
 
 static gboolean
-operations_check(gpointer user_data)
+search_pending_execute(gpointer user_data)
 {
   ofono_private *priv = user_data;
 
@@ -42,13 +42,13 @@ static void
 simmgr_property_changed(OfonoSimMgr* sender, const char* name, GVariant* value,
                         void* arg)
 {
-  operations_check(arg);
+  search_pending_execute(arg);
 }
 
 static void
 connmgr_context_added(OfonoConnMgr* sender, OfonoConnCtx* context, void* arg)
 {
-  operations_check(arg);
+  search_pending_execute(arg);
 }
 
 static void
@@ -110,26 +110,26 @@ search_operation_check(const gchar *path, const gpointer token,
         }
         else
         {
-          OfonoConnMgr *mgr = md->connmgr;
+          /*
+           * Find the *last* internet context. The reason to do so is - if
+           * this is an LTE modem, context is auto-activated, however if for
+           * some reason APN reported by the modem does not match APN in
+           * mobile-broadband-provider-info (old data etc.), then another
+           * context is appended. We should use that context for
+           * provisioning
+           */
+          OfonoConnCtx *ctx = ofono_modem_get_last_internet_context(md);
 
-          if (ofono_connmgr_valid(mgr))
+          if (ctx && ctx->apn && ctx->username && ctx->password)
           {
-            GPtrArray *ctxs = ofono_connmgr_get_contexts(mgr);
-            guint i;
-
-            for (i = 0; i < ctxs->len; i++)
+            /* we must provision IAP with context deactivated */
+            if (ctx->active)
             {
-              OfonoConnCtx *ctx = ctxs->pdata[i];
-
-              if (ofono_connctx_valid(ctx) &&
-                  ctx->type == OFONO_CONNCTX_TYPE_INTERNET &&
-                  ctx->apn && ctx->username && ctx->password)
-              {
-                rv = OPERATION_STATUS_FINISHED;
-                break;
-              }
+              OFONO_DEBUG("Deactivating chosen context %s", ctx->object.path);
+              ofono_connctx_deactivate(ctx);
             }
-
+            else
+              rv = OPERATION_STATUS_FINISHED;
           }
         }
       }
@@ -288,7 +288,7 @@ ofono_start_search(const gchar *network_type, guint search_scope,
       _search_cb = search_cb;
       _search_cb_token = search_cb_token;
       g_hash_table_foreach(priv->modems, modems_foreach, priv);
-      g_idle_add(operations_check, priv);
+      g_idle_add(search_pending_execute, priv);
       operations_group_timeout_id = g_timeout_add_seconds(
             SEARCH_INTERVAL, operations_group_timeout, priv);
       finish = FALSE;

@@ -87,13 +87,6 @@ modem_removed_cb(OfonoManager* manager, const char* path, void* arg)
 
   OFONO_ENTER
 
- /* else if (mc->type == OFONO_MANAGER_MODEM_CHANGE)
-  {
-    OFONO_INFO("Change modem, path %s", path);
-    pending_operation_group_list_execute(priv->operation_groups);
-  }
-  else*/
-
   OFONO_INFO("Removed modem, path %s", path);
   pending_operation_group_list_remove(priv->operation_groups, path);
 
@@ -160,4 +153,58 @@ ofono_modem_manager_exit(ofono_private *priv)
     priv->modems = NULL;
   }
 
+}
+
+OfonoConnCtx *
+ofono_modem_get_last_internet_context(struct modem_data *md)
+{
+  OfonoConnMgr *mgr;
+  OfonoConnCtx *ctx = NULL;
+
+  g_return_val_if_fail(md != NULL, NULL);
+
+  mgr = md->connmgr;
+
+  if (ofono_connmgr_valid(mgr))
+  {
+    GPtrArray *ctxs = ofono_connmgr_get_contexts(mgr);
+    guint i;
+
+    for (i = 0; i < ctxs->len; i++)
+    {
+      OfonoConnCtx *c = ctxs->pdata[i];
+
+      if (ofono_connctx_valid(c) && c->type == OFONO_CONNCTX_TYPE_INTERNET)
+        ctx = c;
+    }
+  }
+
+  return ctx;
+}
+
+OfonoConnCtx *
+ofono_modem_get_context_by_apn(struct modem_data *md, const char *apn)
+{
+  OfonoConnMgr *mgr;
+
+  g_return_val_if_fail(md != NULL, NULL);
+  g_return_val_if_fail(apn != NULL, NULL);
+
+  mgr = md->connmgr;
+
+  if (ofono_connmgr_valid(mgr))
+  {
+    GPtrArray *ctxs = ofono_connmgr_get_contexts(mgr);
+    guint i;
+
+    for (i = 0; i < ctxs->len; i++)
+    {
+      OfonoConnCtx *ctx = ctxs->pdata[i];
+
+      if (ofono_connctx_valid(ctx) && !strcasecmp(ctx->apn, apn))
+        return ctx;
+    }
+  }
+
+  return NULL;
 }

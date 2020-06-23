@@ -4,10 +4,10 @@
 		<schema>
 			<key>/schemas/system/osso/connectivity/network_type/GPRS/network_modules</key>
 			<applyto>/system/osso/connectivity/network_type/GPRS/network_modules</applyto>
-			<owner>libicd-network-gprs</owner>
+			<owner>libicd-network-ofono</owner>
 			<type>list</type>
 			<list_type>string</list_type>
-			<default>[libicd_network_ofono.so]</default>
+			<default>[libicd_network_ofono.so,libicd_network_ipv4.so]</default>
 			<locale name="C">
 				<short>GPRS network modules</short>
 				<long>Names of the network modules needed for GPRS network type</long>
@@ -16,7 +16,7 @@
 		<schema>
 			<key>/schemas/system/osso/connectivity/network_type/GPRS/gprs_roaming_disabled</key>
 			<applyto>/system/osso/connectivity/network_type/GPRS/gprs_roaming_disabled</applyto>
-			<owner>libicd-network-gprs</owner>
+			<owner>libicd-network-ofono</owner>
 			<type>bool</type>
 			<default>true</default>
 			<locale name="C">
@@ -27,7 +27,7 @@
 		<schema>
 			<key>/schemas/system/osso/connectivity/network_type/GPRS/gprs_no_coverage_timeout</key>
 			<applyto>/system/osso/connectivity/network_type/GPRS/gprs_no_coverage_timeout</applyto>
-			<owner>libicd-network-gprs</owner>
+			<owner>libicd-network-ofono</owner>
 			<type>int</type>
 			<default>60000</default>
 			<locale name="C">
@@ -43,7 +43,7 @@
 		<schema>
 			<key>/schemas/system/osso/connectivity/network_type/GPRS/gprs_roaming_notification_period</key>
 			<applyto>/system/osso/connectivity/network_type/GPRS/gprs_roaming_notification_period</applyto>
-			<owner>libicd-network-gprs</owner>
+			<owner>libicd-network-ofono</owner>
 			<type>string</type>
 			<default>10000000</default>
 			<locale name="C">
@@ -59,7 +59,7 @@
 		<schema>
 			<key>/schemas/system/osso/connectivity/network_type/GPRS/gprs_home_notification_period</key>
 			<applyto>/system/osso/connectivity/network_type/GPRS/gprs_home_notification_period</applyto>
-			<owner>libicd-network-gprs</owner>
+			<owner>libicd-network-ofono</owner>
 			<type>string</type>
 			<default>0</default>
 			<locale name="C">

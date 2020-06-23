@@ -52,6 +52,7 @@ ofono_iap_provision_connection(const gchar *id, struct modem_data *md,
   if (ctx->password)
     ofono_icd_gconf_set_iap_string(priv, id, "gprs_password", ctx->password);
 
+  // Parse method from ctx->settings->method
   ofono_icd_gconf_set_iap_string(priv, id, "ipv4_type", "AUTO");
   ofono_icd_gconf_set_iap_bool(priv, id, "ipv4_autodns", TRUE);
   ofono_icd_gconf_set_iap_bool(priv, id, "ask_password", FALSE);

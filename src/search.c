@@ -94,6 +94,9 @@ search_operation_check(const gchar *path, const gpointer token,
     {
       gchar *iap_id = ofono_iap_sim_is_provisioned(sim->imsi, priv);
 
+      if (!md->modem->online)
+        ofono_modem_set_online(md->modem, TRUE);
+
       if (iap_id)
       {
         /* SIM already provisioned, finish */

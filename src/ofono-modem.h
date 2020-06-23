@@ -1,3 +1,5 @@
+#ifndef _OFONO_MODEM_H_
+#define _OFONO_MODEM_H_
 #include <gofono_modem.h>
 #include <gofono_simmgr.h>
 #include <gofono_connmgr.h>
@@ -38,3 +40,4 @@ struct modem_data
 
 OfonoConnCtx *ofono_modem_get_last_internet_context(struct modem_data *md);
 OfonoConnCtx *ofono_modem_get_context_by_apn(struct modem_data *md, const char *apn);
+#endif /* _OFONO_MODEM_H_ */

@@ -1,3 +1,6 @@
+#ifndef _OFONO_PRIVATE_H
+#define _OFONO_PRIVATE_H
+
 #include <gofono_manager.h>
 #include "icd/network_api.h"
 #include <gconf/gconf-client.h>
@@ -27,3 +30,5 @@ struct _ofono_private
 #define SEARCH_LIFETIME 30
 
 #define SIM_IMSI "sim_imsi"
+
+#endif /* _OFONO_PRIVATE_H */

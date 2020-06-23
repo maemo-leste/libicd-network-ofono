@@ -1,3 +1,6 @@
+#ifndef _LOG_H_
+#define _LOG_H_
+
 #include <icd/support/icd_log.h>
 
 #define OFONO_DEBUG(fmt, ...) ILOG_DEBUG(("[OFONO] "fmt), ##__VA_ARGS__)
@@ -8,3 +11,4 @@
 
 #define OFONO_ENTER OFONO_DEBUG("> %s", __func__);
 #define OFONO_EXIT OFONO_DEBUG("< %s", __func__);
+#endif /* _LOG_H */

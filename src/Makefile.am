@@ -19,6 +19,7 @@ plugin_LTLIBRARIES = \
 
 libicd_network_ofono_la_SOURCES = \
 	iap.c \
+	icd-gconf.c \
 	ofono-gconf.c \
 	ofono-modem.c \
 	search.c \

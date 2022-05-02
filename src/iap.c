@@ -90,10 +90,10 @@ ofono_iap_provision_sim(struct modem_data *md, ofono_private *priv)
   {
     id = create_iap_id();
     ofono_icd_gconf_set_iap_string(priv, id, SIM_IMSI, md->sim->imsi);
-    ofono_icd_gconf_set_iap_string(priv, id, TYPE, "GPRS");
-    ofono_iap_provision_connection(id, md, priv);
   }
 
+  ofono_icd_gconf_set_iap_string(priv, id, TYPE, "GPRS");
+  ofono_iap_provision_connection(id, md, priv);
   ofono_icd_gconf_set_iap_string(priv, id, NAME, md->sim->spn);
 
   g_hash_table_destroy(gprs_iaps);
@@ -108,7 +108,16 @@ ofono_iap_sim_is_provisioned(const gchar *imsi, ofono_private *priv)
   gchar *rv = g_hash_table_lookup(gprs_iaps, imsi);
 
   if (rv)
-    rv = g_strdup(rv);
+  {
+    gchar *apn = icd_gconf_get_iap_string(rv, "gprs_accesspointname");
+
+    if (apn && *apn)
+      rv = g_strdup(rv);
+    else
+      rv = NULL;
+
+    g_free(apn);
+  }
 
   g_hash_table_destroy(gprs_iaps);
 

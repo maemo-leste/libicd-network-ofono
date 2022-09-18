@@ -61,12 +61,21 @@ _link_up_idle(gpointer user_data)
   {
     if (s->method != OFONO_CONNCTX_METHOD_DHCP)
     {
-      OFONO_DEBUG("ipv4 settings: %s %s (gw %s) (nm %s)",
-                  s->ifname, s->address, s->gateway, s->netmask);
+      OFONO_DEBUG("ipv4 settings: %s %s (gw %s) (nm %s) (dns %s %s)",
+                  s->ifname, s->address, s->gateway, s->netmask,
+                  s->dns[0], s->dns[0] ? s->dns[1] : s->dns[0]);
       ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_address", s->address);
       ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_gateway", s->gateway);
       ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_netmask", s->netmask);
       ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_type", "STATIC");
+
+      if (s->dns[0])
+      {
+        ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_dns1", s->dns[0]);
+
+        if (s->dns[1])
+          ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_dns2", s->dns[1]);
+      }
     }
     else
       OFONO_DEBUG("ipv4 settings: dhcp");

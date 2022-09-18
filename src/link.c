@@ -19,29 +19,35 @@ ofono_modem_find_by_imsi(ofono_private *priv, const gchar *imsi)
   {
     struct modem_data *md = value;
 
-    if (ofono_simmgr_valid(md->sim) && !strcmp(md->sim->imsi, imsi))
+    if (ofono_simmgr_valid(md->sim) && md->sim->present &&
+        !g_strcmp0(md->sim->imsi, imsi))
+    {
       return md;
+    }
   }
 
   return NULL;
 }
 
-struct connctx_handler_data
+struct connctx_data
 {
   ofono_private *priv;
   gchar *network_id;
+  gchar *network_type;
+  guint network_attrs;
   icd_nw_link_up_cb_fn link_up_cb;
   gpointer link_up_cb_token;
   struct modem_data *md;
   OfonoConnCtx *ctx;
   guint timeout_id;
   gulong id;
+  gboolean connected;
 };
 
 static gboolean
 _link_up_idle(gpointer user_data)
 {
-  struct connctx_handler_data *data = user_data;
+  struct connctx_data *data = user_data;
   ofono_private *priv = data->priv;
   gchar *net_id = data->network_id;
   OfonoConnCtx *ctx = data->ctx;
@@ -101,19 +107,18 @@ _link_up_idle(gpointer user_data)
   data->timeout_id = 0;
   data->link_up_cb(ICD_NW_SUCCESS_NEXT_LAYER, NULL, data->ctx->settings->ifname,
                    data->link_up_cb_token, NULL);
+  data->connected = TRUE;
 
   /* restore what we found initially */
   ofono_icd_gconf_set_iap_bool(priv, net_id, "ipv4_autodns", ipv4_autodns);
   ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_type", ipv4_type);
   g_free(ipv4_type);
 
-  g_hash_table_remove(data->md->ctxhd, data->ctx);
-
   return G_SOURCE_REMOVE;
 }
 
 static void
-connctx_activate(struct connctx_handler_data *data, gboolean activate)
+connctx_activate(struct connctx_data *data, gboolean activate)
 {
   if (activate)
   {
@@ -131,28 +136,46 @@ connctx_activate(struct connctx_handler_data *data, gboolean activate)
 static void
 _ctx_active_changed_cb(OfonoConnCtx *ctx, void* user_data)
 {
-  struct connctx_handler_data *data = user_data;
+  struct connctx_data *data = user_data;
 
   OFONO_DEBUG("ctx %p active state changed to %d", ctx, ctx->active);
 
-  if (ctx->active)
-    data->timeout_id = g_idle_add(_link_up_idle, data);
-  else
-    connctx_activate(data, TRUE);
+  if (!data->connected)
+  {
+    if (ctx->active)
+      data->timeout_id = g_idle_add(_link_up_idle, data);
+    else
+      connctx_activate(data, TRUE);
+  }
+  else if (!ctx->active)
+  {
+    data->priv->close_fn(ICD_NW_ERROR, "network_error", data->network_type,
+                         data->network_attrs, data->network_id);
+    g_hash_table_remove(data->md->ctxhd, ctx);
+  }
 }
 
 static void
 _connctx_weak_notify(gpointer user_data, GObject *ctx)
 {
-  struct connctx_handler_data *data = user_data;
+  struct connctx_data *data = user_data;
+
+  OFONO_DEBUG("ctx %p is being destroyed", ctx);
+
+  if (data->connected)
+  {
+    data->priv->close_fn(ICD_NW_ERROR, "network_error", data->network_type,
+                         data->network_attrs, data->network_id);
+
+  }
 
   g_hash_table_remove(data->md->ctxhd, ctx);
 }
 
 void
-ofono_connctx_handler_data_destroy(gpointer ctxhd)
+ofono_connctx_handler_data_destroy(gpointer ctxd)
 {
-  struct connctx_handler_data *data = ctxhd;
+  struct connctx_data *data = ctxd;
 
   g_object_weak_unref((GObject *)data->ctx, _connctx_weak_notify, data);
   ofono_connctx_remove_handler(data->ctx, data->id);
@@ -161,6 +184,7 @@ ofono_connctx_handler_data_destroy(gpointer ctxhd)
     g_source_remove(data->timeout_id);
 
   g_free(data->network_id);
+  g_free(data->network_type);
   g_free(data);
 }
 
@@ -176,7 +200,7 @@ ofono_link_up(const gchar *network_type, const guint network_attrs,
   struct modem_data *md;
   gchar *apn = NULL;
   OfonoConnCtx *ctx;
-  struct connctx_handler_data *data;
+  struct connctx_data *data;
 
   OFONO_ENTER
 
@@ -214,18 +238,21 @@ ofono_link_up(const gchar *network_type, const guint network_attrs,
   else
     OFONO_DEBUG("Got ctx: %p", ctx);
 
-  data = g_try_new(struct connctx_handler_data, 1);
+  data = g_try_new(struct connctx_data, 1);
 
   if (!data)
     goto out;
 
   data->priv = priv;
+  data->network_type = g_strdup(network_type);
+  data->network_attrs = network_attrs;
   data->network_id = g_strdup(network_id);
   data->link_up_cb = link_up_cb;
   data->link_up_cb_token = link_up_cb_token;
   data->md = md;
   data->ctx = ctx;
   data->timeout_id = 0;
+  data->connected = FALSE;
   data->id = ofono_connctx_add_active_changed_handler(
         ctx, _ctx_active_changed_cb, data);
 

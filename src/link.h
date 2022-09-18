@@ -9,6 +9,6 @@ void ofono_link_down(const gchar *network_type, const guint network_attrs,
                      icd_nw_link_down_cb_fn link_down_cb,
                      const gpointer link_down_cb_token, gpointer *_priv);
 
-void ofono_connctx_handler_data_destroy(gpointer ctxhd);
+void ofono_connctx_handler_data_destroy(gpointer ctxd);
 
 #endif /* _LINK_H_ */

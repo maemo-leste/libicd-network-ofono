@@ -26,18 +26,116 @@ ofono_modem_find_by_imsi(ofono_private *priv, const gchar *imsi)
   return NULL;
 }
 
-#if 0
-static gboolean
-link_pending_execute(gpointer user_data)
+struct connctx_handler_data
 {
-  ofono_private *priv = user_data;
+  ofono_private *priv;
+  gchar *network_id;
+  icd_nw_link_up_cb_fn link_up_cb;
+  gpointer link_up_cb_token;
+  struct modem_data *md;
+  OfonoConnCtx *ctx;
+  guint timeout_id;
+  gulong id;
+};
 
-  pending_operation_group_list_execute(priv->operation_groups);
+static gboolean
+_link_up_idle(gpointer user_data)
+{
+  struct connctx_handler_data *data = user_data;
+  ofono_private *priv = data->priv;
+  gchar *net_id = data->network_id;
+  OfonoConnCtx *ctx = data->ctx;
+  const OfonoConnCtxSettings* s = ctx->settings;
+  gchar *ipv4_type = ofono_icd_gconf_get_iap_string(priv, net_id, "ipv4_type");
 
-  return FALSE;
+  if (!ipv4_type)
+  {
+    ipv4_type = g_strdup("AUTO");
+    ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_type", "AUTO");
+  }
+
+  OFONO_DEBUG("Calling next layer, ipv4_type: %s", ipv4_type);
+
+  /* hack settings so next layer to take it from there */
+  if (!strcmp(ipv4_type, "AUTO"))
+  {
+    if (s->method != OFONO_CONNCTX_METHOD_DHCP)
+    {
+      OFONO_DEBUG("ipv4 settings: %s %s (gw %s) (nm %s)",
+                  s->ifname, s->address, s->gateway, s->netmask);
+      ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_address", s->address);
+      ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_gateway", s->gateway);
+      ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_netmask", s->netmask);
+      ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_type", "STATIC");
+    }
+    else
+      OFONO_DEBUG("ipv4 settings: dhcp");
+  }
+
+  data->timeout_id = 0;
+  data->link_up_cb(ICD_NW_SUCCESS_NEXT_LAYER, NULL, data->ctx->settings->ifname,
+                   data->link_up_cb_token, NULL);
+
+  /* restore what we found initially */
+  ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_type", ipv4_type);
+  g_free(ipv4_type);
+
+  g_hash_table_remove(data->md->ctxhd, data->ctx);
+
+  return G_SOURCE_REMOVE;
 }
-#endif
 
+static void
+connctx_activate(struct connctx_handler_data *data, gboolean activate)
+{
+  if (activate)
+  {
+    /* we shall set here user/pwd/whatever from gconf */
+    OFONO_DEBUG("Activate ctx: %p", data->ctx);
+    ofono_connctx_activate(data->ctx);
+  }
+  else
+  {
+    OFONO_DEBUG("Dectivate ctx: %p", data->ctx);
+    ofono_connctx_deactivate(data->ctx);
+  }
+}
+
+static void
+_ctx_active_changed_cb(OfonoConnCtx *ctx, void* user_data)
+{
+  struct connctx_handler_data *data = user_data;
+
+  OFONO_DEBUG("ctx %p active state changed to %d", ctx, ctx->active);
+
+  if (ctx->active)
+    data->timeout_id = g_idle_add(_link_up_idle, data);
+  else
+    connctx_activate(data, TRUE);
+}
+
+static void
+_connctx_weak_notify(gpointer user_data, GObject *ctx)
+{
+  struct connctx_handler_data *data = user_data;
+
+  g_hash_table_remove(data->md->ctxhd, ctx);
+}
+
+void
+ofono_connctx_handler_data_destroy(gpointer ctxhd)
+{
+  struct connctx_handler_data *data = ctxhd;
+
+  g_object_weak_unref((GObject *)data->ctx, _connctx_weak_notify, data);
+  ofono_connctx_remove_handler(data->ctx, data->id);
+
+  if (data->timeout_id)
+    g_source_remove(data->timeout_id);
+
+  g_free(data->network_id);
+  g_free(data);
+}
 
 void
 ofono_link_up(const gchar *network_type, const guint network_attrs,
@@ -47,106 +145,77 @@ ofono_link_up(const gchar *network_type, const guint network_attrs,
   ofono_private *priv = *_priv;
   const char *err_msg = "no_network";
   gchar *imsi;
+  gboolean error = TRUE;
+  struct modem_data *md;
+  gchar *apn = NULL;
+  OfonoConnCtx *ctx;
+  struct connctx_handler_data *data;
 
   OFONO_ENTER
 
-
-  OFONO_DEBUG("Getting IMSI");
   imsi = icd_gconf_get_iap_string(network_id, SIM_IMSI);
 
-  int hack_ok = 0;
-  gchar* hack_interface = NULL;
-  gchar* hack_ip = NULL;
-  gchar* hack_gw = NULL;
-  gchar* hack_netmask = NULL;
-
-  if (imsi)
+  if (!imsi)
   {
-    OFONO_DEBUG("Got IMSI: %s", imsi);
-    struct modem_data *md = ofono_modem_find_by_imsi(priv, imsi);
+      OFONO_WARN("network_id %s is missing imsi gconf data", network_id);
+      goto out;
+  }
 
-    g_free(imsi);
+  OFONO_DEBUG("Got IMSI: %s", imsi);
 
-    if (md)
-    {
-      OFONO_DEBUG("Got modem data");
-      gchar *apn = icd_gconf_get_iap_string(network_id, "gprs_accesspointname");
-      OFONO_DEBUG("Got APN: %s", apn);
-      OfonoConnCtx *ctx = ofono_modem_get_context_by_apn(md, apn);
-      /* TODO: free apn ? */
-      /* XXX: unref this ctx, maybe? */
+  md = ofono_modem_find_by_imsi(priv, imsi);
 
-      OFONO_DEBUG("Got Ctx: %p", ctx);
+  if (!md)
+  {
+    OFONO_WARN("No modem found for imsi %s", imsi);
+    goto out;
+  }
 
-      // XXX: call ofono_iap_provision_connection here?
-      //
-      // libgofono/include/gofono_connctx.h
-      //
-      //
-      // method enums, etc
+  OFONO_DEBUG("Got modem data");
 
-      g_free(apn);
+  apn = icd_gconf_get_iap_string(network_id, "gprs_accesspointname");
 
-      if (ctx)
-      {
-        if (!ctx->active) {
-            OFONO_DEBUG("Context is not yet active, activating");
-            ofono_connctx_activate(ctx);
-        }
+  OFONO_DEBUG("Got APN: %s", apn);
 
-        if (ctx->active) {
-            OFONO_DEBUG("Context is active");
-            hack_interface = g_strdup(ctx->settings->ifname);
-            hack_ip = g_strdup(ctx->settings->address);
-            hack_gw = g_strdup(ctx->settings->gateway);
-            hack_netmask = g_strdup(ctx->settings->netmask);
-            OFONO_DEBUG("Context settings: %s %s (gw %s) (nm %s)", hack_interface, hack_ip, hack_gw, hack_netmask);
+  ctx = ofono_modem_get_context_by_apn(md, apn);
 
-            ofono_icd_gconf_set_iap_string(priv, network_id, "ipv4_address", ctx->settings->address);
-            ofono_icd_gconf_set_iap_string(priv, network_id, "ipv4_gateway", ctx->settings->gateway);
-            ofono_icd_gconf_set_iap_string(priv, network_id, "ipv4_netmask", ctx->settings->netmask);
-            ofono_icd_gconf_set_iap_string(priv, network_id, "ipv4_type", "STATIC");
-            hack_ok = 1;
-        }
-        //
-        //pending_operation_group *g =
-        //    pending_operation_group_new(path, ofono_link_finish, priv);
-
-
-#if 0
-        if (ctx->active)
-        {
-          ofono_connctx_deactivate(ctx);
-          g_idle_add(link_pending_execute, priv);
-        }
-        else
-        {
-            /* set ctx from gconf */
-            /* XXX: probably should be: set ctx from gconf ? */
-        }
-#endif
-      }
-    }
-    else
-      ; // XXX
-      //OFONO_ERROR("No modem found for imsi %s", imsi);
-
+  if (!ctx)
+  {
+    OFONO_WARN("No context found for apn %s", apn);
+    goto out;
   }
   else
-    ; // XXX
-    //OFONO_ERROR("network_id %s is missing imsi gconf data", network_id);
+    OFONO_DEBUG("Got ctx: %p", ctx);
 
+  data = g_try_new(struct connctx_handler_data, 1);
 
-  // TODO: As temporary hack, could set ip values (for static or dhcp) here to
-  // gconf and then pass to ipv4 layer and it would pick these up
+  if (!data)
+    goto out;
 
-  // typedef void(* icd_nw_link_up_cb_fn)(const enum icd_nw_status status, const gchar *err_str, const gchar *interface_name, const gpointer link_up_cb_token,...) 
-  //
-  if (hack_ok == 1) {
-      link_up_cb(ICD_NW_SUCCESS_NEXT_LAYER, NULL, hack_interface, link_up_cb_token, NULL);
-  } else {
-      link_up_cb(ICD_NW_ERROR, err_msg, NULL, link_up_cb_token, NULL);
-  }
+  data->priv = priv;
+  data->network_id = g_strdup(network_id);
+  data->link_up_cb = link_up_cb;
+  data->link_up_cb_token = link_up_cb_token;
+  data->md = md;
+  data->ctx = ctx;
+  data->timeout_id = 0;
+  data->id = ofono_connctx_add_active_changed_handler(
+        ctx, _ctx_active_changed_cb, data);
+
+  g_hash_table_insert(md->ctxhd, ctx, data);
+
+  /* in case ctx gets destroyed behind our back */
+  g_object_weak_ref((GObject *)ctx, _connctx_weak_notify, data);
+
+  connctx_activate(data, !ctx->active);
+  error = FALSE;
+
+out:
+  g_free(apn);
+  g_free(imsi);
+
+  if (error)
+    link_up_cb(ICD_NW_ERROR, err_msg, NULL, link_up_cb_token, NULL);
 
   OFONO_EXIT
 }
@@ -162,7 +231,6 @@ ofono_link_down(const gchar *network_type, const guint network_attrs,
 
   OFONO_ENTER
 
-
   OFONO_DEBUG("Getting IMSI");
   imsi = icd_gconf_get_iap_string(network_id, SIM_IMSI);
 
@@ -170,19 +238,29 @@ ofono_link_down(const gchar *network_type, const guint network_attrs,
   {
     OFONO_DEBUG("Got IMSI: %s", imsi);
     struct modem_data *md = ofono_modem_find_by_imsi(priv, imsi);
+
     g_free(imsi);
-    if (md) {
-      OFONO_DEBUG("Got modem data");
+
+    if (md)
+    {
+      OfonoConnCtx *ctx ;
       gchar *apn = icd_gconf_get_iap_string(network_id, "gprs_accesspointname");
-      OFONO_DEBUG("Got APN: %s", apn);
-      OfonoConnCtx *ctx = ofono_modem_get_context_by_apn(md, apn);
-      /* TODO: free apn ? */
-      if (ctx->active) {
-        ofono_connctx_deactivate(ctx);
+
+      OFONO_DEBUG("Got modem data, APN %s", apn);
+
+      ctx = ofono_modem_get_context_by_apn(md, apn);
+      g_free(apn);
+
+      if (ctx)
+      {
+        g_hash_table_remove(md->ctxhd, ctx);
+
+        if (ctx->active)
+          ofono_connctx_deactivate(ctx);
       }
+
     }
   }
-
 
   link_down_cb(ICD_NW_SUCCESS, link_down_cb_token);
 

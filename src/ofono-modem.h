@@ -36,6 +36,10 @@ struct modem_data
 
   OfonoConnMgr *connmgr;
   gulong connmgr_handler_id[CONNMGR_HANDLER_COUNT];
+
+  /* this one contains ctx -> context activate changed handler data, so we can
+   * clean-up if necesarry */
+  GHashTable *ctxhd;
 };
 
 OfonoConnCtx *ofono_modem_get_last_internet_context(struct modem_data *md);

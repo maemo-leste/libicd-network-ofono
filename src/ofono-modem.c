@@ -1,13 +1,17 @@
 #include "ofono-private.h"
 #include "ofono-modem.h"
+#include "link.h"
 #include "log.h"
 
 static void
 destroy_modem_data(struct modem_data *md)
 {
+  g_hash_table_destroy(md->ctxhd);
+
   ofono_connmgr_unref(md->connmgr);
   ofono_simmgr_unref(md->sim);
   ofono_modem_unref(md->modem);
+
   g_free(md);
 }
 
@@ -19,7 +23,7 @@ power_up_modem(OfonoModem* modem, ofono_private *priv)
 }
 
 static void
-modem_valid_cb(OfonoModem* sender, void* arg)
+modem_valid_cb(OfonoModem *sender, void *arg)
 {
   ofono_private *priv = arg;
 
@@ -56,6 +60,8 @@ create_modem(OfonoModem *modem, ofono_private *priv)
   md->modem = ofono_modem_ref(modem);
   md->sim = ofono_simmgr_new(path);
   md->connmgr = ofono_connmgr_new(path);
+  md->ctxhd = g_hash_table_new_full(g_direct_hash, g_direct_equal, NULL,
+                                    ofono_connctx_handler_data_destroy);
 
   g_hash_table_insert(priv->modems, g_strdup(path), md);
 

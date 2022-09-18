@@ -1,3 +1,11 @@
+libicd-network-ofono (1.0.4) unstable; urgency=medium
+
+  * Fix search timeout processing
+  * react on context being disconnected
+  * Do not wait if there is no SIM present
+
+ -- Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>  Sun, 18 Sep 2022 13:56:18 +0300
+
 libicd-network-ofono (1.0.3) unstable; urgency=medium
 
   * fix DNS usage logic

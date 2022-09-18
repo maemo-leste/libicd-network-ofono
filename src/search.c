@@ -104,55 +104,61 @@ search_operation_check(const gchar *path, const gpointer token,
   {
     OfonoSimMgr *sim = md->sim;
 
-    if (ofono_modem_valid(md->modem) &&
-        ofono_simmgr_valid(sim) &&
-        sim->present &&
-        sim->imsi && *sim->imsi)
+    if (ofono_modem_valid(md->modem) && ofono_simmgr_valid(sim))
     {
-      gchar *iap_id = ofono_iap_sim_is_provisioned(sim->imsi, priv);
-
-      if (!md->modem->online)
-        ofono_modem_set_online(md->modem, TRUE);
-
-      if (iap_id)
+      if (sim->present)
       {
-        /* SIM already provisioned, finish */
-        g_free(iap_id);
-        rv = OPERATION_STATUS_FINISHED;
-      }
-      else
-      {
-        if (!sim->spn || !*sim->spn)
+        if (sim->imsi && *sim->imsi)
         {
-          /* we need modem online to get SPN */
+          gchar *iap_id = ofono_iap_sim_is_provisioned(sim->imsi, priv);
+
           if (!md->modem->online)
             ofono_modem_set_online(md->modem, TRUE);
-        }
-        else
-        {
-          /*
-           * Find the *last* internet context. The reason to do so is - if
-           * this is an LTE modem, context is auto-activated, however if for
-           * some reason APN reported by the modem does not match APN in
-           * mobile-broadband-provider-info (old data etc.), then another
-           * context is appended. We should use that context for
-           * provisioning
-           */
-          OfonoConnCtx *ctx = ofono_modem_get_last_internet_context(md);
 
-          if (ctx && ctx->apn && ctx->username && ctx->password)
+          if (iap_id)
           {
-            /* we must provision IAP with context deactivated */
-            if (ctx->active)
+            /* SIM already provisioned, finish */
+            g_free(iap_id);
+            rv = OPERATION_STATUS_FINISHED;
+          }
+          else
+          {
+            if (!sim->spn || !*sim->spn)
             {
-              OFONO_DEBUG("Deactivating chosen context %s", ctx->object.path);
-              ofono_connctx_deactivate(ctx);
+              /* we need modem online to get SPN */
+              if (!md->modem->online)
+                ofono_modem_set_online(md->modem, TRUE);
             }
             else
-              rv = OPERATION_STATUS_FINISHED;
+            {
+              /*
+               * Find the *last* internet context. The reason to do so is - if
+               * this is an LTE modem, context is auto-activated, however if for
+               * some reason APN reported by the modem does not match APN in
+               * mobile-broadband-provider-info (old data etc.), then another
+               * context is appended. We should use that context for
+               * provisioning
+               */
+              OfonoConnCtx *ctx = ofono_modem_get_last_internet_context(md);
+
+              if (ctx && ctx->apn && ctx->username && ctx->password)
+              {
+                /* we must provision IAP with context deactivated */
+                if (ctx->active)
+                {
+                  OFONO_DEBUG("Deactivating chosen context %s",
+                              ctx->object.path);
+                  ofono_connctx_deactivate(ctx);
+                }
+                else
+                  rv = OPERATION_STATUS_FINISHED;
+              }
+            }
           }
         }
       }
+      else
+        rv = OPERATION_STATUS_ABORT;
     }
   }
 

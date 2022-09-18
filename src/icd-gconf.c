@@ -48,6 +48,25 @@ ofono_icd_gconf_get_iap_string(ofono_private *priv, const char *iap_name,
 }
 
 gboolean
+ofono_icd_gconf_get_iap_bool(ofono_private *priv, const char *iap_name,
+                             const char *key, gboolean default_value)
+{
+  GError *err = NULL;
+  char *id = gconf_escape_key(iap_name, -1);
+  gchar *dir = g_strdup_printf(ICD_GCONF_PATH "/%s/%s", id, key);
+  gboolean rv = gconf_client_get_bool(priv->gconf, dir, &err);
+
+  if (err)
+    rv = default_value;
+
+  g_free(id);
+  g_free(dir);
+  ofono_icd_gconf_check_error(&err);
+
+  return rv;
+}
+
+gboolean
 ofono_icd_gconf_set_iap_bool(ofono_private *priv, const char *iap_name,
                              const char *key, gboolean val)
 {

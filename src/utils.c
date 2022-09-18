@@ -203,35 +203,25 @@ void
 pending_operation_group_list_remove(pending_operation_group_list *list,
                                     const gchar *path)
 {
+  GSList *to_remove = NULL;
   GSList *l;
 
-  if (path)
+  g_return_if_fail(path != NULL);
+
+  for (l = list->groups; l; l = l->next)
   {
-    GSList *to_remove = NULL;
+    pending_operation_group *group = l->data;
 
-    for (l = list->groups; l; l = l->next)
-    {
-      pending_operation_group *group = l->data;
-
-      if (!g_strcmp0(group->path, path))
-        to_remove = g_slist_append(to_remove, group);
-    }
-
-    for (l = to_remove; l; l = l->next)
-    {
-      list->groups = g_slist_remove(list->groups, l->data);
-      pending_operation_group_abort(l->data);
-      pending_operation_group_free(l->data);
-    }
-
-    g_slist_free(to_remove);
+    if (!g_strcmp0(group->path, path))
+      to_remove = g_slist_append(to_remove, group);
   }
-  else
+
+  for (l = to_remove; l; l = l->next)
   {
-    for (l = list->groups; l; l = l->next)
-    {
-      pending_operation_group_abort(l->data);
-      pending_operation_group_free(l->data);
-    }
+    list->groups = g_slist_remove(list->groups, l->data);
+    pending_operation_group_abort(l->data);
+    pending_operation_group_free(l->data);
   }
+
+  g_slist_free(to_remove);
 }

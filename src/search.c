@@ -8,7 +8,6 @@
 
 static icd_nw_search_cb_fn _search_cb = NULL;
 static gpointer _search_cb_token = NULL;
-static guint operations_group_timeout_id = 0;
 
 static void
 remove_handlers(struct modem_data *md)
@@ -66,11 +65,29 @@ add_handlers(struct modem_data *md, ofono_private *priv)
                                               connmgr_context_added, priv);
 }
 
+struct operations_group_data
+{
+  ofono_private *priv;
+  gchar *path;
+  guint id;
+};
+
+static void
+operations_group_data_destroy(struct operations_group_data *ogd)
+{
+  if (ogd->id)
+    g_source_remove(ogd->id);
+
+  g_free(ogd->path);
+  g_free(ogd);
+}
+
 static enum operation_status
 search_operation_check(const gchar *path, const gpointer token,
                        gpointer group_user_data, gpointer user_data)
 {
-  ofono_private *priv = group_user_data;
+  struct operations_group_data *ogd = group_user_data;
+  ofono_private *priv = ogd->priv;
   enum operation_status rv = OPERATION_STATUS_CONTINUE;
   struct modem_data *md;
 
@@ -151,16 +168,16 @@ search_operation_check(const gchar *path, const gpointer token,
 static gboolean
 operations_group_timeout(gpointer user_data)
 {
-  ofono_private *priv = user_data;
+  struct operations_group_data *ogd = user_data;
 
   OFONO_ENTER
 
-  operations_group_timeout_id = 0;
-  pending_operation_group_list_remove(priv->operation_groups, NULL);
+  ogd->id = 0;
+  pending_operation_group_list_remove(ogd->priv->operation_groups, ogd->path);
 
   OFONO_EXIT
 
-  return FALSE;
+  return G_SOURCE_REMOVE;
 }
 
 static gboolean
@@ -173,13 +190,6 @@ idle_check_group_list(gpointer user_data)
   if (pending_operation_group_list_is_empty(priv->operation_groups))
   {
     OFONO_INFO("Search finished");
-
-    if (operations_group_timeout_id)
-    {
-      g_source_remove(operations_group_timeout_id);
-      operations_group_timeout_id = 0;
-      pending_operation_group_list_remove(priv->operation_groups, NULL);
-    }
 
     if (_search_cb)
     {
@@ -229,7 +239,8 @@ static void
 ofono_start_search_finish(const gchar *path, enum operation_status status,
                           const gpointer token, gpointer user_data)
 {
-  ofono_private *priv = user_data;
+  struct operations_group_data *ogd = user_data;
+  ofono_private *priv = ogd->priv;
   struct modem_data *md;
 
   OFONO_ENTER
@@ -246,6 +257,9 @@ ofono_start_search_finish(const gchar *path, enum operation_status status,
 
     remove_handlers(md);
   }
+
+  operations_group_data_destroy(ogd);
+
   /*
     we need to do idle check as current cb is called before group is removed
     from the list
@@ -258,20 +272,37 @@ ofono_start_search_finish(const gchar *path, enum operation_status status,
 static void
 modems_foreach(gpointer key, gpointer value, gpointer user_data)
 {
-  const gchar *path = key;
   ofono_private *priv = user_data;
-  pending_operation_group *g =
-      pending_operation_group_new(path, ofono_start_search_finish, priv);
+  const gchar *path = key;
+  pending_operation_group *group;
   struct modem_data *md = value;
+  struct operations_group_data *ogd;
+
+  ogd = g_try_new(struct operations_group_data, 1);
 
   OFONO_DEBUG("path %s", path);
 
+  if (!ogd)
+  {
+    OFONO_CRIT("No enough memory allocating operations_group_data for path %s",
+               path);
+    return;
+  }
+
+  ogd->priv = priv;
+  ogd->path = g_strdup(path);
+
+  group = pending_operation_group_new(path, ofono_start_search_finish, ogd);
+
   pending_operation_group_add_operation(
-        g, pending_operation_new(search_operation_check, NULL, NULL), -1);
+        group, pending_operation_new(search_operation_check, NULL, NULL), -1);
 
   add_handlers(md, priv);
 
-  pending_operation_group_list_add(priv->operation_groups, g);
+  pending_operation_group_list_add(priv->operation_groups, group);
+
+  ogd->id =
+      g_timeout_add_seconds(SEARCH_INTERVAL, operations_group_timeout, ogd);
 }
 
 void
@@ -292,8 +323,6 @@ ofono_start_search(const gchar *network_type, guint search_scope,
       _search_cb_token = search_cb_token;
       g_hash_table_foreach(priv->modems, modems_foreach, priv);
       g_idle_add(search_pending_execute, priv);
-      operations_group_timeout_id = g_timeout_add_seconds(
-            SEARCH_INTERVAL, operations_group_timeout, priv);
       finish = FALSE;
     }
     else

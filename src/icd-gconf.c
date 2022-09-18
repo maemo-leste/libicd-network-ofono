@@ -22,7 +22,12 @@ ofono_icd_gconf_set_iap_string(ofono_private *priv, const char *iap_name,
   GError *err = NULL;
   char *id = gconf_escape_key(iap_name, -1);
   gchar *dir = g_strdup_printf(ICD_GCONF_PATH "/%s/%s", id, key);
-  gboolean rv = gconf_client_set_string(priv->gconf, dir, val, &err);
+  gboolean rv;
+
+  if (val)
+    rv = gconf_client_set_string(priv->gconf, dir, val, &err);
+  else
+    rv = gconf_client_unset(priv->gconf, dir, &err);
 
   g_free(id);
   g_free(dir);

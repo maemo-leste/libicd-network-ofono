@@ -47,6 +47,8 @@ _link_up_idle(gpointer user_data)
   OfonoConnCtx *ctx = data->ctx;
   const OfonoConnCtxSettings* s = ctx->settings;
   gchar *ipv4_type = ofono_icd_gconf_get_iap_string(priv, net_id, "ipv4_type");
+  gboolean ipv4_autodns = ofono_icd_gconf_get_iap_bool(priv, net_id,
+                                                       "ipv4_autodns", TRUE);
 
   if (!ipv4_type)
   {
@@ -73,9 +75,10 @@ _link_up_idle(gpointer user_data)
       OFONO_DEBUG("ipv4 settings: dhcp");
   }
 
-  if (ofono_icd_gconf_get_iap_bool(priv, net_id, "ipv4_autodns", TRUE))
+  if (ipv4_autodns)
   {
     OFONO_DEBUG("Using ofono provided DNS addresses");
+    ofono_icd_gconf_set_iap_bool(priv, net_id, "ipv4_autodns", FALSE);
 
     if (s->dns[0])
     {
@@ -84,7 +87,12 @@ _link_up_idle(gpointer user_data)
       if (s->dns[1])
         ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_dns2", s->dns[1]);
       else
-        ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_dns2", "0.0.0.0");
+        ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_dns2", NULL);
+    }
+    else
+    {
+      ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_dns1", NULL);
+      ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_dns2", NULL);
     }
   }
   else
@@ -95,6 +103,7 @@ _link_up_idle(gpointer user_data)
                    data->link_up_cb_token, NULL);
 
   /* restore what we found initially */
+  ofono_icd_gconf_set_iap_bool(priv, net_id, "ipv4_autodns", ipv4_autodns);
   ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_type", ipv4_type);
   g_free(ipv4_type);
 

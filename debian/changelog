@@ -1,3 +1,9 @@
+libicd-network-ofono (1.0.2) unstable; urgency=medium
+
+  * use ofono DNS only if manual DNS is not set
+
+ -- Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>  Sun, 18 Sep 2022 08:30:44 +0300
+
 libicd-network-ofono (1.0.1) unstable; urgency=medium
 
   * Use ofono provided DNS, if any

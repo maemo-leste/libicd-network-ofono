@@ -113,7 +113,10 @@ search_operation_check(const gchar *path, const gpointer token,
           gchar *iap_id = ofono_iap_sim_is_provisioned(sim->imsi, priv);
 
           if (!md->modem->online)
+          {
+            /* we need modem online to get SPN */
             ofono_modem_set_online(md->modem, TRUE);
+          }
 
           if (iap_id)
           {
@@ -123,13 +126,7 @@ search_operation_check(const gchar *path, const gpointer token,
           }
           else
           {
-            if (!sim->spn || !*sim->spn)
-            {
-              /* we need modem online to get SPN */
-              if (!md->modem->online)
-                ofono_modem_set_online(md->modem, TRUE);
-            }
-            else
+            if (sim->spn && *sim->spn)
             {
               /*
                * Find the *last* internet context. The reason to do so is - if

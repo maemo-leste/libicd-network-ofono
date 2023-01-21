@@ -1,3 +1,9 @@
+libicd-network-ofono (1.0.5) unstable; urgency=medium
+
+  * Add more traces during search
+
+ -- Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>  Sat, 21 Jan 2023 09:05:42 +0200
+
 libicd-network-ofono (1.0.4) unstable; urgency=medium
 
   * Fix search timeout processing

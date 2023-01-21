@@ -92,6 +92,7 @@ search_operation_check(const gchar *path, const gpointer token,
   struct modem_data *md;
 
   OFONO_ENTER
+  OFONO_DEBUG("Checking modem %s", path);
 
   md = g_hash_table_lookup(priv->modems, path);
 
@@ -102,61 +103,87 @@ search_operation_check(const gchar *path, const gpointer token,
   }
   else
   {
-    OfonoSimMgr *sim = md->sim;
-
-    if (ofono_modem_valid(md->modem) && ofono_simmgr_valid(sim))
+    if (ofono_modem_valid(md->modem))
     {
-      if (sim->present)
+      OfonoSimMgr *sim = md->sim;
+
+      if (ofono_simmgr_valid(sim))
       {
-        if (sim->imsi && *sim->imsi)
+        if (sim->present)
         {
-          gchar *iap_id = ofono_iap_sim_is_provisioned(sim->imsi, priv);
+          if (sim->imsi && *sim->imsi)
+          {
+            gchar *iap_id = ofono_iap_sim_is_provisioned(sim->imsi, priv);
 
-          if (!md->modem->online)
-          {
-            /* we need modem online to get SPN */
-            ofono_modem_set_online(md->modem, TRUE);
-          }
-
-          if (iap_id)
-          {
-            /* SIM already provisioned, finish */
-            g_free(iap_id);
-            rv = OPERATION_STATUS_FINISHED;
-          }
-          else
-          {
-            if (sim->spn && *sim->spn)
+            if (!md->modem->online)
             {
-              /*
-               * Find the *last* internet context. The reason to do so is - if
-               * this is an LTE modem, context is auto-activated, however if for
-               * some reason APN reported by the modem does not match APN in
-               * mobile-broadband-provider-info (old data etc.), then another
-               * context is appended. We should use that context for
-               * provisioning
-               */
-              OfonoConnCtx *ctx = ofono_modem_get_last_internet_context(md);
+              /* we need modem online to get SPN */
+              OFONO_DEBUG("Modem is offline, bring it online");
+              ofono_modem_set_online(md->modem, TRUE);
+            }
 
-              if (ctx && ctx->apn && ctx->username && ctx->password)
+            if (iap_id)
+            {
+              /* SIM already provisioned, finish */
+
+              OFONO_DEBUG("SIM already provisioned, iap_id [%s]", iap_id);
+
+              g_free(iap_id);
+              rv = OPERATION_STATUS_FINISHED;
+            }
+            else
+            {
+              OFONO_DEBUG("SIM not provisioned");
+
+              if (sim->spn && *sim->spn)
               {
-                /* we must provision IAP with context deactivated */
-                if (ctx->active)
+                OfonoConnCtx *ctx;
+
+                OFONO_DEBUG("SIM SPN %s", sim->spn);
+
+                /*
+                 * Find the *last* internet context. The reason to do so is -
+                 * if this is an LTE modem, context is auto-activated, however
+                 * if for some reason APN reported by the modem does not match
+                 * APN in mobile-broadband-provider-info (old data, etc.),
+                 * then another context is appended. We should use that
+                 * context for provisioning
+                 */
+                ctx = ofono_modem_get_last_internet_context(md);
+
+                if (ctx && ctx->apn && ctx->username && ctx->password)
                 {
-                  OFONO_DEBUG("Deactivating chosen context %s",
-                              ctx->object.path);
-                  ofono_connctx_deactivate(ctx);
+                  /* we must provision IAP with context deactivated */
+                  if (ctx->active)
+                  {
+                    OFONO_DEBUG("Deactivating chosen context %s",
+                                ctx->object.path);
+                    ofono_connctx_deactivate(ctx);
+                  }
+                  else
+                    rv = OPERATION_STATUS_FINISHED;
                 }
                 else
-                  rv = OPERATION_STATUS_FINISHED;
+                  OFONO_DEBUG("No SIM internet context available yet");
               }
+              else
+                OFONO_DEBUG("No SIM SPN available yet");
             }
           }
+          else
+            OFONO_DEBUG("No SIM IMSI available yet");
+        }
+        else
+        {
+          OFONO_INFO("No SIM present");
+          rv = OPERATION_STATUS_ABORT;
         }
       }
       else
-        rv = OPERATION_STATUS_ABORT;
+        OFONO_DEBUG("SIM is not valid yet");
     }
+    else
+      OFONO_DEBUG("Modem is not valid yet");
   }
 
   if (rv == OPERATION_STATUS_FINISHED)

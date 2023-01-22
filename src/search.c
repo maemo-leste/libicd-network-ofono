@@ -119,7 +119,7 @@ search_operation_check(const gchar *path, const gpointer token,
           {
             gchar *iap_id = ofono_iap_sim_is_provisioned(sim->imsi, priv);
 
-            if (!md->modem->online)
+            if (!md->modem->online && !iap_id)
             {
               /* we need modem online to get SPN */
               OFONO_DEBUG("Modem is offline, bring it online");
@@ -137,41 +137,34 @@ search_operation_check(const gchar *path, const gpointer token,
             }
             else
             {
+              OfonoConnCtx *ctx;
+
               OFONO_DEBUG("SIM not provisioned");
 
-              if (sim->spn && *sim->spn)
+              /*
+               * Find the *last* internet context. The reason to do so is -
+               * if this is an LTE modem, context is auto-activated, however
+               * if for some reason APN reported by the modem does not match
+               * APN in mobile-broadband-provider-info (old data, etc.),
+               * then another context is appended. We should use that
+               * context for provisioning
+               */
+              ctx = ofono_modem_get_last_internet_context(md);
+
+              if (ctx && ctx->apn && ctx->username && ctx->password)
               {
-                OfonoConnCtx *ctx;
-
-                OFONO_DEBUG("SIM SPN %s", sim->spn);
-
-                /*
-                 * Find the *last* internet context. The reason to do so is -
-                 * if this is an LTE modem, context is auto-activated, however
-                 * if for some reason APN reported by the modem does not match
-                 * APN in mobile-broadband-provider-info (old data, etc.),
-                 * then another context is appended. We should use that
-                 * context for provisioning
-                 */
-                ctx = ofono_modem_get_last_internet_context(md);
-
-                if (ctx && ctx->apn && ctx->username && ctx->password)
+                /* we must provision IAP with context deactivated */
+                if (ctx->active)
                 {
-                  /* we must provision IAP with context deactivated */
-                  if (ctx->active)
-                  {
-                    OFONO_DEBUG("Deactivating chosen context %s",
-                                ctx->object.path);
-                    ofono_connctx_deactivate(ctx);
-                  }
-                  else
-                    rv = OPERATION_STATUS_FINISHED;
+                  OFONO_DEBUG("Deactivating chosen context %s",
+                              ctx->object.path);
+                  ofono_connctx_deactivate(ctx);
                 }
                 else
-                  OFONO_DEBUG("No SIM internet context available yet");
+                  rv = OPERATION_STATUS_FINISHED;
               }
               else
-                OFONO_DEBUG("No SIM SPN available yet");
+                OFONO_DEBUG("No SIM internet context available yet");
             }
           }
           else

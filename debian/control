@@ -3,13 +3,14 @@ Priority: optional
 Maintainer: Ivaylo Dimitrov <ivo.g.dimitrov.75@gmail.com>
 Build-Depends: debhelper (>> 3.0.0), autotools-dev,
  libglib2.0-dev, libgconf2-dev, libgofono-dev, libglibutil-dev,
- icd2-dev, icd2-osso-ic-dev, libconnui-dev, ofono-dev, libhildon1-dev
+ icd2-dev, icd2-osso-ic-dev, libconnui-dev, ofono-dev, libhildon1-dev,
+ libxml2-dev, mobile-broadband-provider-info
 Standards-Version: 3.7.2
 Section: net
 
 Package: libicd-network-ofono
 Section: net
 Architecture: any
-Depends: icd2, udhcpc, ${shlibs:Depends}
+Depends: icd2, udhcpc, mobile-broadband-provider-info, ${shlibs:Depends}
 Description: ICd2 OFONO network configuration module
  ICd2 OFONO network configuration module

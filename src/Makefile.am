@@ -8,7 +8,9 @@ AM_CPPFLAGS = \
 	$(OSSO_IC_DEV_CFLAGS) \
 	$(DBUS_CFLAGS) \
 	$(LIBGOFONO_CFLAGS) \
-	$(CONNUI_CFLAGS)
+	$(CONNUI_CFLAGS) \
+	$(XML_CFLAGS) \
+	-DMBPI_DATABASE=\"$(MBPI_DATABASE)\"
 
 AM_LDFLAGS = -avoid-version -Wl,--as-needed
 
@@ -34,4 +36,5 @@ libicd_network_ofono_la_LIBADD = \
 	$(OSSO_IC_DEV_LIBS) \
 	$(DBUS_LIBS) \
 	$(LIBGOFONO_LIBS) \
-	$(CONNUI_LIBS)
+	$(CONNUI_LIBS)\
+	$(XML_LIBS)

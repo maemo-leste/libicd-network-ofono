@@ -49,6 +49,9 @@ PKG_CHECK_MODULES(CONNUI, connui)
 AC_SUBST(CONNUI_CFLAGS)
 AC_SUBST(CONNUI_LIBS)
 
+PKG_CHECK_MODULES(MBPI, [mobile-broadband-provider-info])
+PKG_CHECK_MODULES(XML, [libxml-2.0])
+
 AC_MSG_CHECKING([wheter to send logs to stderr])
 AC_ARG_ENABLE(log_stderr,
 	[AS_HELP_STRING([--enable-log-stderr],
@@ -84,6 +87,9 @@ AM_CONDITIONAL(DOXYGEN_DOCS_ENABLED, [test x$DOXYGEN != x])
 
 CFLAGS="$CFLAGS -Wall -Werror -Wmissing-declarations"
 CFLAGS="$CFLAGS -include config.h"
+
+MBPI_DATABASE=`pkg-config mobile-broadband-provider-info --variable=database`
+AC_SUBST(MBPI_DATABASE)
 
 AC_OUTPUT([
 	Makefile

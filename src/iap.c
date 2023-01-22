@@ -79,7 +79,8 @@ ofono_iap_provision_connection(const gchar *id, struct modem_data *md,
 }
 
 gchar *
-ofono_iap_provision_sim(struct modem_data *md, ofono_private *priv)
+ofono_iap_provision_sim(struct modem_data *md, const char *name,
+                        ofono_private *priv)
 {
   GHashTable *gprs_iaps = get_gprs_iaps(priv);
   gchar *id = g_hash_table_lookup(gprs_iaps, md->sim->imsi);
@@ -94,7 +95,7 @@ ofono_iap_provision_sim(struct modem_data *md, ofono_private *priv)
 
   ofono_icd_gconf_set_iap_string(priv, id, TYPE, "GPRS");
   ofono_iap_provision_connection(id, md, priv);
-  ofono_icd_gconf_set_iap_string(priv, id, NAME, md->sim->spn);
+  ofono_icd_gconf_set_iap_string(priv, id, NAME, name);
 
   g_hash_table_destroy(gprs_iaps);
 

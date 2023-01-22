@@ -1,4 +1,8 @@
+#include "config.h"
+
 #include <gofono_names.h>
+#include <libxml/xmlreader.h>
+#include <libxml/xpath.h>
 
 #include "ofono-private.h"
 #include "ofono-modem.h"
@@ -236,19 +240,97 @@ idle_check_group_list(gpointer user_data)
   return FALSE;
 }
 
+static gchar *
+_mbpi_get_name(int mcc, int mnc)
+{
+  xmlDocPtr doc;
+  gchar *name = NULL;
+
+  doc = xmlParseFile(MBPI_DATABASE);
+
+  if (doc)
+  {
+    /* Create xpath evaluation context */
+    xmlXPathContextPtr ctx = xmlXPathNewContext(doc);
+
+    if (ctx)
+    {
+      gchar *xpath = g_strdup_printf(
+        "//network-id[@mcc='%03d' and @mnc='%02d']/../../name/text()", mcc,
+        mnc);
+      xmlXPathObjectPtr obj = xmlXPathEvalExpression(BAD_CAST xpath, ctx);
+
+      if (obj && obj->nodesetval)
+      {
+        xmlNodeSetPtr nodes = obj->nodesetval;
+
+        if (nodes->nodeNr)
+        {
+          xmlChar *content = xmlNodeGetContent(nodes->nodeTab[0]);
+
+          name = g_strdup((const gchar *)content);
+
+          xmlFree(content);
+        }
+
+        xmlXPathFreeObject(obj);
+      }
+      else
+        OFONO_WARN("Unable to evaluate xpath expression '%s'", xpath);
+
+      g_free(xpath);
+      xmlXPathFreeContext(ctx);
+    }
+    else
+      OFONO_WARN("Unable to create new XPath context");
+
+    xmlFreeDoc(doc);
+  }
+  else
+    OFONO_WARN("Unable to parse '" MBPI_DATABASE "'");
+
+  return name;
+}
+
+static gchar *
+get_spn(struct modem_data *md)
+{
+  const gchar *name = md->sim->spn;
+  int mnc;
+  int mcc;
+
+  if (name && *name)
+    return g_strdup(name);
+
+  if (sscanf(md->sim->imsi, "%03d%02d", &mcc, &mnc) != 2)
+    return NULL;
+
+  return _mbpi_get_name(mcc, mnc);
+}
+
 static void
 add_search_result(struct modem_data *md, ofono_private *priv)
 {
   OFONO_ENTER
 
   gchar *iap_id = ofono_iap_sim_is_provisioned(md->sim->imsi, priv);
-  gchar *name;
+  gchar *name = NULL;
 
   if (!iap_id)
   {
     OFONO_INFO("SIM %s seen for the very first time, provisioning.",
                md->sim->imsi);
-    iap_id = ofono_iap_provision_sim(md, priv);
+
+    name = get_spn(md);
+
+    if (!name)
+    {
+      OFONO_WARN("SIM %s, cannot create SPN", md->sim->imsi);
+      name = g_strdup("Mobile Connection");
+    }
+
+    iap_id = ofono_iap_provision_sim(md, name, priv);
+    g_free(name);
   }
 
   name = ofono_iap_get_name(iap_id);

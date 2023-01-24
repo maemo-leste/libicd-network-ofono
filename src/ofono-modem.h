@@ -43,5 +43,8 @@ struct modem_data
 };
 
 OfonoConnCtx *ofono_modem_get_last_internet_context(struct modem_data *md);
-OfonoConnCtx *ofono_modem_get_context_by_apn(struct modem_data *md, const char *apn);
+OfonoConnCtx *ofono_modem_get_context_by_id(struct modem_data *md,
+                                            const char *context_id);
+const char *ofono_context_get_id(OfonoConnCtx *ctx);
+
 #endif /* _OFONO_MODEM_H_ */

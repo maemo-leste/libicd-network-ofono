@@ -188,13 +188,28 @@ ofono_modem_get_last_internet_context(struct modem_data *md)
   return ctx;
 }
 
+const char *
+ofono_context_get_id(OfonoConnCtx *ctx)
+{
+  const char *context_id;
+
+  g_return_val_if_fail(ctx != NULL, NULL);
+  g_return_val_if_fail(ctx->object.path != NULL, NULL);
+
+  context_id  = strrchr(ctx->object.path, '/');
+
+  g_return_val_if_fail(context_id != NULL, NULL);
+
+  return context_id + 1;
+}
+
 OfonoConnCtx *
-ofono_modem_get_context_by_apn(struct modem_data *md, const char *apn)
+ofono_modem_get_context_by_id(struct modem_data *md, const char *context_id)
 {
   OfonoConnMgr *mgr;
 
   g_return_val_if_fail(md != NULL, NULL);
-  g_return_val_if_fail(apn != NULL, NULL);
+  g_return_val_if_fail(context_id != NULL, NULL);
 
   mgr = md->connmgr;
 
@@ -207,8 +222,13 @@ ofono_modem_get_context_by_apn(struct modem_data *md, const char *apn)
     {
       OfonoConnCtx *ctx = ctxs->pdata[i];
 
-      if (ofono_connctx_valid(ctx) && !strcasecmp(ctx->apn, apn))
-        return ctx;
+      if (ofono_connctx_valid(ctx))
+      {
+        const char *candidate_id = ofono_context_get_id(ctx);
+
+        if (candidate_id && !strcasecmp(candidate_id, context_id))
+          return ctx;
+      }
     }
   }
 

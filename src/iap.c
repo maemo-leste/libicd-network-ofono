@@ -39,9 +39,22 @@ ofono_iap_provision_connection(const gchar *id, struct modem_data *md,
                                ofono_private *priv)
 {
   OfonoConnCtx *ctx = ofono_modem_get_last_internet_context(md);
+  const char *context_id = ofono_context_get_id(ctx);
 
   if (!ctx)
+  {
+    OFONO_WARN("SIM %s, no internet context found", md->sim->imsi);
     return;
+  }
+
+  if (!context_id)
+  {
+    OFONO_WARN("SIM %s, invalid internet context %s",
+               md->sim->imsi, ctx->object.path);
+    return;
+  }
+
+  ofono_icd_gconf_set_iap_string(priv, id, "context_id", context_id);
 
   if (ctx->apn)
     ofono_icd_gconf_set_iap_string(priv, id, "gprs_accesspointname", ctx->apn);
@@ -110,14 +123,14 @@ ofono_iap_sim_is_provisioned(const gchar *imsi, ofono_private *priv)
 
   if (rv)
   {
-    gchar *apn = icd_gconf_get_iap_string(rv, "gprs_accesspointname");
+    gchar *context_id = icd_gconf_get_iap_string(rv, "context_id");
 
-    if (apn && *apn)
+    if (context_id && *context_id)
       rv = g_strdup(rv);
     else
       rv = NULL;
 
-    g_free(apn);
+    g_free(context_id);
   }
 
   g_hash_table_destroy(gprs_iaps);

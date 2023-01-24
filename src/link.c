@@ -198,8 +198,8 @@ ofono_link_up(const gchar *network_type, const guint network_attrs,
   gchar *imsi;
   gboolean error = TRUE;
   struct modem_data *md;
-  gchar *apn = NULL;
-  OfonoConnCtx *ctx;
+  gchar *context_id = NULL;
+  OfonoConnCtx *ctx = NULL;
   struct connctx_data *data;
 
   OFONO_ENTER
@@ -209,7 +209,7 @@ ofono_link_up(const gchar *network_type, const guint network_attrs,
   if (!imsi)
   {
       OFONO_WARN("network_id %s is missing imsi gconf data", network_id);
-      goto out;
+      goto err;
   }
 
   OFONO_DEBUG("Got IMSI: %s", imsi);
@@ -219,21 +219,29 @@ ofono_link_up(const gchar *network_type, const guint network_attrs,
   if (!md)
   {
     OFONO_WARN("No modem found for imsi %s", imsi);
-    goto out;
+    goto err;
   }
 
   OFONO_DEBUG("Got modem data");
 
-  apn = icd_gconf_get_iap_string(network_id, "gprs_accesspointname");
+  context_id = icd_gconf_get_iap_string(network_id, "context_id");
 
-  OFONO_DEBUG("Got APN: %s", apn);
+  if (!context_id || !*context_id)
+  {
+    OFONO_WARN("No context id found for iap %s", network_id);
+    goto err;
+  }
 
-  ctx = ofono_modem_get_context_by_apn(md, apn);
+  OFONO_DEBUG("Got context id: %s", context_id);
+
+  ctx = ofono_modem_get_context_by_id(md, context_id);
 
   if (!ctx)
   {
-    OFONO_WARN("No context found for apn %s", apn);
-    goto out;
+    OFONO_WARN("No context found for id %s, unprovision iap %s", context_id,
+               network_id);
+    ofono_icd_gconf_set_iap_string(priv, network_id, "context_id", NULL);
+    goto err;
   }
   else
     OFONO_DEBUG("Got ctx: %p", ctx);
@@ -241,7 +249,7 @@ ofono_link_up(const gchar *network_type, const guint network_attrs,
   data = g_try_new(struct connctx_data, 1);
 
   if (!data)
-    goto out;
+    goto err;
 
   data->priv = priv;
   data->network_type = g_strdup(network_type);
@@ -264,8 +272,8 @@ ofono_link_up(const gchar *network_type, const guint network_attrs,
   connctx_activate(data, !ctx->active);
   error = FALSE;
 
-out:
-  g_free(apn);
+err:
+  g_free(context_id);
   g_free(imsi);
 
   if (error)
@@ -297,13 +305,13 @@ ofono_link_down(const gchar *network_type, const guint network_attrs,
 
     if (md)
     {
-      OfonoConnCtx *ctx ;
-      gchar *apn = icd_gconf_get_iap_string(network_id, "gprs_accesspointname");
+      OfonoConnCtx *ctx;
+      gchar *context_id = icd_gconf_get_iap_string(network_id, "context_id");
 
-      OFONO_DEBUG("Got modem data, APN %s", apn);
+      OFONO_DEBUG("Got modem data, id %s", context_id);
 
-      ctx = ofono_modem_get_context_by_apn(md, apn);
-      g_free(apn);
+      ctx = ofono_modem_get_context_by_id(md, context_id);
+      g_free(context_id);
 
       if (ctx)
       {

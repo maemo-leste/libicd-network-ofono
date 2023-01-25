@@ -118,13 +118,83 @@ _link_up_idle(gpointer user_data)
 }
 
 static void
+ofono_connctx_set_string_complete(OfonoConnCtx *ctx, const GError *error,
+                                  void *arg)
+{
+    GList **l = arg;
+
+    if (error)
+    {
+        OFONO_WARN("Unable to set context property '%s': %s",
+                   (gchar *)(*l)->data,
+                   error->message ? error->message : "Unknown error");
+    }
+    else
+      OFONO_DEBUG("Context property '%s' set", (gchar *)(*l)->data);
+
+
+    g_free((*l)->data);
+    *l = g_list_delete_link(*l, *l);
+
+    if (*l == NULL)
+    {
+      g_free(l);
+      ofono_connctx_activate(ctx);
+    }
+}
+
+
+static void
 connctx_activate(struct connctx_data *data, gboolean activate)
 {
   if (activate)
   {
-    /* we shall set here user/pwd/whatever from gconf */
+    ofono_private *priv = data->priv;
+    gchar *iap_name = data->network_id;
+    OfonoConnCtx *ctx = data->ctx;
+    gchar *s;
+    GList **l = g_new0(GList *, 1);
+
     OFONO_DEBUG("Activate ctx: %p", data->ctx);
-    ofono_connctx_activate(data->ctx);
+
+    s = ofono_icd_gconf_get_iap_string(priv, iap_name, "gprs_accesspointname");
+
+    if (g_strcmp0(ctx->apn, s))
+    {
+      *l = g_list_prepend(*l, g_strdup("AccessPointName"));
+      ofono_connctx_set_string_full(ctx, "AccessPointName", s,
+                                    ofono_connctx_set_string_complete, l);
+    }
+
+    g_free(s);
+
+    s = ofono_icd_gconf_get_iap_string(priv, iap_name, "gprs_username");
+
+    if (g_strcmp0(ctx->username, s))
+    {
+      *l = g_list_prepend(*l, g_strdup("Username"));
+      ofono_connctx_set_string_full(ctx, "Username", s,
+                                    ofono_connctx_set_string_complete, l);
+    }
+
+    g_free(s);
+
+    s = ofono_icd_gconf_get_iap_string(priv, iap_name, "gprs_password");
+
+    if (g_strcmp0(ctx->password, s))
+    {
+      *l = g_list_prepend(*l, g_strdup("Password"));
+      ofono_connctx_set_string_full(ctx, "Password", s,
+                                    ofono_connctx_set_string_complete, l);
+    }
+
+    g_free(s);
+
+    if (*l == NULL)
+    {
+      g_free(l);
+      ofono_connctx_activate(data->ctx);
+    }
   }
   else
   {

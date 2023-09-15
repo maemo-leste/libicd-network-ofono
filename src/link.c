@@ -65,7 +65,7 @@ _link_up_idle(gpointer user_data)
   OFONO_DEBUG("Calling next layer, ipv4_type: %s", ipv4_type);
   OFONO_DEBUG("ipv4 settings: %s %s (gw %s) (nm %s) (dns %s %s)",
               s->ifname, s->address, s->gateway, s->netmask,
-              s->dns[0], s->dns[0] ? s->dns[1] : s->dns[0]);
+              s->dns[0], s->dns[1] ? s->dns[1] : s->dns[0]);
 
   /* hack settings so next layer to take it from there */
   if (!strcmp(ipv4_type, "AUTO"))

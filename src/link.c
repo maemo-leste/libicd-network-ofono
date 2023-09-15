@@ -64,8 +64,8 @@ _link_up_idle(gpointer user_data)
 
   OFONO_DEBUG("Calling next layer, ipv4_type: %s", ipv4_type);
   OFONO_DEBUG("ipv4 settings: %s %s (gw %s) (nm %s) (dns %s %s)",
-              s->ifname, s->address, s->gateway, s->netmask,
-              s->dns[0], s->dns[1] ? s->dns[1] : s->dns[0]);
+              s->ifname, s->address, s->gateway ? s->gateway : "0.0.0.0",
+              s->netmask, s->dns[0], s->dns[1] ? s->dns[1] : s->dns[0]);
 
   /* hack settings so next layer to take it from there */
   if (!strcmp(ipv4_type, "AUTO"))
@@ -73,7 +73,17 @@ _link_up_idle(gpointer user_data)
     if (s->method != OFONO_CONNCTX_METHOD_DHCP)
     {
       ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_address", s->address);
-      ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_gateway", s->gateway);
+      if (s->gateway)
+      {
+        ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_gateway", s->gateway);
+      }
+      else
+      {
+        /* If no gateway is provided, use `0.0.0.0`, per
+         * https://git.kernel.org/pub/scm/network/ofono/ofono.git/commit/test/process-context-settings?id=945a621a2ddfc01b8bdd8936044cb7d2604e8608
+         */
+        ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_gateway", "0.0.0.0");
+      }
       ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_netmask", s->netmask);
       ofono_icd_gconf_set_iap_string(priv, net_id, "ipv4_type", "STATIC");
     }

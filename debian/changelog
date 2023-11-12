@@ -1,3 +1,9 @@
+libicd-network-ofono (1.2.1) unstable; urgency=medium
+
+  * Switch to using iproute2
+
+ -- Merlijn Wajer <merlijn@wizzup.org>  Mon, 13 Nov 2023 00:02:16 +0100
+
 libicd-network-ofono (1.2.0) unstable; urgency=medium
 
   * Set context apn/username/password from iap settings

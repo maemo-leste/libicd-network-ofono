@@ -12,6 +12,6 @@ Package: libicd-network-ofono
 Section: net
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, icd2, udhcpc,
- mobile-broadband-provider-info
+ mobile-broadband-provider-info, iproute2
 Description: ICd2 OFONO network configuration module
  ICd2 OFONO network configuration module
